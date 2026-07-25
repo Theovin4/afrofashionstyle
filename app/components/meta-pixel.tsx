@@ -14,9 +14,51 @@ declare global {
 export const META_PIXEL_ID = "4611600329085591";
 
 export function trackMeta(event: string, parameters?: Record<string, unknown>) {
-  if (typeof window !== "undefined" && window.fbq) {
-    window.fbq("track", event, parameters);
-  }
+  if (typeof window === "undefined") return;
+  const eventId = crypto.randomUUID();
+  window.fbq?.("track", event, parameters, { eventID: eventId });
+  const cookies = Object.fromEntries(document.cookie.split("; ").filter(Boolean).map((item) => {
+    const separator = item.indexOf("=");
+    return [item.slice(0, separator), decodeURIComponent(item.slice(separator + 1))];
+  }));
+  void fetch("/api/meta/events", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    keepalive: true,
+    body: JSON.stringify({
+      eventName: event,
+      eventId,
+      sourceUrl: window.location.href,
+      customData: parameters,
+      userData: { fbp: cookies._fbp, fbc: cookies._fbc },
+    }),
+  }).catch(() => undefined);
+}
+
+export function trackMetaWithUser(
+  event: string,
+  parameters: Record<string, unknown>,
+  userData: Record<string, string>,
+) {
+  if (typeof window === "undefined") return;
+  const eventId = crypto.randomUUID();
+  window.fbq?.("track", event, parameters, { eventID: eventId });
+  const cookies = Object.fromEntries(document.cookie.split("; ").filter(Boolean).map((item) => {
+    const separator = item.indexOf("=");
+    return [item.slice(0, separator), decodeURIComponent(item.slice(separator + 1))];
+  }));
+  void fetch("/api/meta/events", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    keepalive: true,
+    body: JSON.stringify({
+      eventName: event,
+      eventId,
+      sourceUrl: window.location.href,
+      customData: parameters,
+      userData: { ...userData, fbp: cookies._fbp, fbc: cookies._fbc },
+    }),
+  }).catch(() => undefined);
 }
 
 function RouteTracker() {
