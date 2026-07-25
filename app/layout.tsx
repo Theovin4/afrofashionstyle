@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { MetaPixel } from "./components/meta-pixel";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -18,5 +19,5 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     description: "Premium Nigerian-inspired womenswear serving customers in the USA and UK.",
     currenciesAccepted: "USD, GBP", paymentAccepted: "PayPal, Flutterwave",
   };
-  return <html lang="en"><body>{children}<script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} /></body></html>;
+  return <html lang="en"><body>{children}<MetaPixel/><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} /></body></html>;
 }

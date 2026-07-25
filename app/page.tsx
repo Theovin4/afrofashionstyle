@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { trackMeta } from "./components/meta-pixel";
 
 const products = [
   { name: "Zuri Sculpted Midi", category: "Ankara Edit", price: 189, color: "orange", tag: "Bestseller" },
@@ -19,8 +20,24 @@ export default function Home() {
   const total = useMemo(() => bag.reduce((sum, name) => sum + (products.find((p) => p.name === name)?.price ?? 0), 0), [bag]);
 
   function addToBag(name: string) {
+    const product = products.find((item) => item.name === name);
     setBag((items) => [...items, name]);
     setNotice(`${name} added to your bag`);
+    trackMeta("ViewContent", {
+      content_name: name,
+      content_category: product?.category,
+      content_ids: [name],
+      content_type: "product",
+      value: Math.round((product?.price ?? 0) * rate),
+      currency,
+    });
+    trackMeta("AddToCart", {
+      content_name: name,
+      content_ids: [name],
+      content_type: "product",
+      value: Math.round((product?.price ?? 0) * rate),
+      currency,
+    });
     setTimeout(() => setNotice(""), 2200);
   }
 
@@ -87,12 +104,12 @@ export default function Home() {
 
       <section className="newsletter">
         <div><span className="eyebrow">Inside Afro</span><h2>Join the circle.</h2><p>Private previews, styling notes and 10% off your first order.</p></div>
-        <form onSubmit={(e) => { e.preventDefault(); setNotice("Welcome to the circle — check your inbox."); }}><label><span className="sr-only">Email address</span><input type="email" required placeholder="Email address" /></label><button>Join us →</button></form>
+        <form onSubmit={(e) => { e.preventDefault(); trackMeta("Lead", { content_name: "Newsletter signup" }); setNotice("Welcome to the circle — check your inbox."); }}><label><span className="sr-only">Email address</span><input type="email" required placeholder="Email address" /></label><button>Join us →</button></form>
       </section>
 
       <section className="bag-summary" id="bag">
         <div><span className="eyebrow">Your selection</span><h2>{bag.length ? `${bag.length} piece${bag.length > 1 ? "s" : ""} reserved` : "Your bag is waiting"}</h2><p>{bag.length ? bag.join(" · ") : "Explore limited-edition pieces made to be remembered."}</p></div>
-        <div><strong>{symbol}{Math.round(total * rate)}</strong><a className={`button primary ${!bag.length ? "disabled" : ""}`} href={bag.length ? `/checkout?gateway=flutterwave&total=${Math.round(total * rate)}&currency=${currency}` : "#shop"}>Checkout with Flutterwave</a><a className={`button paypal ${!bag.length ? "disabled" : ""}`} href={bag.length ? `/checkout?gateway=paypal&total=${Math.round(total * rate)}&currency=${currency}` : "#shop"}>PayPal checkout</a></div>
+        <div><strong>{symbol}{Math.round(total * rate)}</strong><a onClick={() => bag.length && trackMeta("InitiateCheckout", { value: Math.round(total * rate), currency, num_items: bag.length, content_ids: bag })} className={`button primary ${!bag.length ? "disabled" : ""}`} href={bag.length ? `/checkout?gateway=flutterwave&total=${Math.round(total * rate)}&currency=${currency}` : "#shop"}>Checkout with Flutterwave</a><a onClick={() => bag.length && trackMeta("InitiateCheckout", { value: Math.round(total * rate), currency, num_items: bag.length, content_ids: bag })} className={`button paypal ${!bag.length ? "disabled" : ""}`} href={bag.length ? `/checkout?gateway=paypal&total=${Math.round(total * rate)}&currency=${currency}` : "#shop"}>PayPal checkout</a></div>
       </section>
 
       <footer><div className="footer-brand"><img src="/afro-fashionstyle-logo.png" alt="" /><p>Contemporary African fashion,<br/>designed without borders.</p></div><div><b>Shop</b><a href="#shop">New arrivals</a><a href="#shop">Dresses</a><a href="#shop">Occasion wear</a><a href="#shop">Made to order</a></div><div><b>Care</b><a href="#">Size guide</a><a href="#">Delivery &amp; returns</a><Link href="/orders/track">Track an order</Link><a href="#">Garment care</a></div><div><b>Follow</b><a href="#">Instagram</a><a href="#">Pinterest</a><a href="#">TikTok</a><Link href="/admin">Admin studio</Link></div><small>© 2026 Afro.Fashionstyle · Privacy · Terms · Accessibility</small></footer>
