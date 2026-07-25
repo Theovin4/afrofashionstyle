@@ -1,0 +1,11 @@
+.openai
+build
+db
+drizzle
+examples
+tests
+worker
+vite.config.ts
+drizzle.config.ts
+dev.log
+dev.err.log
