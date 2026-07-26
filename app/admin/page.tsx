@@ -132,6 +132,10 @@ export default function AdminPage() {
           {!orders.length && <p className="admin-empty">New paid orders will appear here automatically.</p>}
         </div>
       </article>
+      <article className="table-card" id="customers">
+        <div className="table-head"><div><h2>Customers</h2><p>Customer history generated from verified orders.</p></div></div>
+        <div className="compact-list">{Array.from(new Map(orders.map((order) => [order.customer_email, order])).values()).map((customer) => <p key={customer.customer_email}><b>{customer.customer_name}</b><span>{customer.customer_email} · {orders.filter((order) => order.customer_email === customer.customer_email).length} order(s)</span></p>)}{!orders.length && <p>No customer orders yet.</p>}</div>
+      </article>
       <section className="operations-grid" id="analytics">
         <article className="table-card"><div className="table-head"><div><h2>Discount codes</h2><p>Create conversion-focused promotions.</p></div></div>
           <form className="inline-admin-form" onSubmit={(event) => { event.preventDefault(); const fields = new FormData(event.currentTarget); void operation({ action: "create_discount", code: fields.get("code"), kind: fields.get("kind"), value: fields.get("value"), currency: fields.get("currency"), minimumOrder: fields.get("minimumOrder") }); event.currentTarget.reset(); }}>

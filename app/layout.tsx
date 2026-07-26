@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { CartProvider } from "./components/cart-provider";
 import { MetaPixel } from "./components/meta-pixel";
+import { ContactActions } from "./components/contact-actions";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -20,5 +21,5 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     description: "Premium Nigerian-inspired womenswear serving customers in the USA and UK.",
     currenciesAccepted: "USD, GBP", paymentAccepted: "PayPal, Flutterwave",
   };
-  return <html lang="en"><body><CartProvider>{children}</CartProvider><MetaPixel/><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} /></body></html>;
+  return <html lang="en"><body><CartProvider>{children}</CartProvider><ContactActions/><MetaPixel/><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} /></body></html>;
 }

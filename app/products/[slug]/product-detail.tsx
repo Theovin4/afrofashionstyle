@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useState } from "react";
 import { useEffect } from "react";
 import type { Product } from "../../lib/commerce-types";
@@ -40,7 +41,7 @@ export function ProductDetail({ product, related }: { product: Product; related:
     </div>
     <div className="product-info"><span className="eyebrow">{product.category}</span><h1>{product.name}</h1><p className="detail-price">{currency} {price.toFixed(2)}</p>
       <p className="detail-description">{product.description || "A considered Afro.Fashionstyle silhouette, crafted to celebrate Nigerian textile heritage through a modern feminine lens."}</p>
-      <div className="size-heading"><b>Select size</b><button>Size guide</button></div>
+      <div className="size-heading"><b>Select size</b><Link href="/size-guide">Size guide</Link></div>
       <div className="size-grid">{(product.product_variants?.filter((variant) => variant.active && variant.stock > 0).map((variant) => variant.size) || sizes).map((item) => <button className={size === item ? "active" : ""} onClick={() => { setSize(item); setSizeError(false); }} key={item}>{item}</button>)}</div>
       {sizeError && <p className="size-error">Please select your size.</p>}
       <button className="add-to-bag" disabled={product.stock < 1} onClick={add}>{product.stock ? "Add to bag" : "Sold out"} · {currency === "USD" ? "$" : "£"}{price.toFixed(2)}</button>
