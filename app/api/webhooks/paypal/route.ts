@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { getPayPalAccessToken, paypalBaseUrl } from "../../../lib/paypal";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,28 +25,6 @@ type PayPalEvent = {
 function hash(value?: string) {
   const normalized = value?.trim().toLowerCase();
   return normalized ? createHash("sha256").update(normalized).digest("hex") : undefined;
-}
-
-function paypalBaseUrl() {
-  return process.env.PAYPAL_ENVIRONMENT === "sandbox"
-    ? "https://api-m.sandbox.paypal.com"
-    : "https://api-m.paypal.com";
-}
-
-async function getPayPalAccessToken(clientId: string, clientSecret: string) {
-  const response = await fetch(`${paypalBaseUrl()}/v1/oauth2/token`, {
-    method: "POST",
-    headers: {
-      authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
-      "content-type": "application/x-www-form-urlencoded",
-    },
-    body: "grant_type=client_credentials",
-    cache: "no-store",
-  });
-  if (!response.ok) throw new Error(`PayPal authentication failed: ${response.status}`);
-  const result = (await response.json()) as { access_token?: string };
-  if (!result.access_token) throw new Error("PayPal did not return an access token");
-  return result.access_token;
 }
 
 async function verifyPayPalWebhook(
@@ -138,7 +117,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const accessToken = await getPayPalAccessToken(clientId, clientSecret);
+    const accessToken = await getPayPalAccessToken();
     const verified = await verifyPayPalWebhook(request, event, accessToken, webhookId);
     if (!verified) {
       return Response.json({ error: "Invalid PayPal signature" }, { status: 401 });
