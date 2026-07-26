@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { trackMetaWithUser } from "../components/meta-pixel";
 
-type Product = { id: string; name: string; price_usd: number; price_gbp: number; stock: number };
+type Product = { id: string; name: string; category: string; price_usd: number; price_gbp: number; stock: number };
 type Customer = { email: string; phone: string; firstName: string; lastName: string; address: string; city: string; zip: string; country: "US" | "GB" };
 
 function CheckoutContent() {
@@ -38,9 +38,13 @@ function CheckoutContent() {
     const product = products.find((item) => item.id === id);
     return sum + Number(currency === "GBP" ? product?.price_gbp || 0 : product?.price_usd || 0);
   }, 0);
+  const ankaraPrices = itemIds.map((id) => products.find((item) => item.id === id)).filter((product) => product?.category.toLowerCase().includes("ankara")).map((product) => Number(product?.price_usd || 0)).sort((a, b) => b - a);
+  const bundleDiscount = currency === "USD" ? ankaraPrices.reduce((sum, price, index) => index % 2 === 0 && ankaraPrices[index + 1] !== undefined ? sum + Math.max(0, price + ankaraPrices[index + 1] - 260) : sum, 0) : 0;
   const shippingRule = shippingRules.find((rule) => rule.country === customer?.country && rule.currency === currency);
   const shippingTotal = shippingRule && (shippingRule.free_over === null || total < Number(shippingRule.free_over)) ? Number(shippingRule.rate) : 0;
-  const grandTotal = Math.max(0, total - discountTotal + shippingTotal);
+  const taxableTotal = Math.max(0, total - discountTotal - bundleDiscount);
+  const taxTotal = Math.round(taxableTotal * .05 * 100) / 100;
+  const grandTotal = taxableTotal + taxTotal + shippingTotal;
 
   async function startPayment() {
     if (!customer || !itemIds.length) return;
@@ -79,6 +83,7 @@ function CheckoutContent() {
             zip: String(fields.get("zip") || ""), country: fields.get("country") === "GB" ? "GB" : "US",
           };
           setCustomer(details);
+          if (fields.get("cartReminder") === "yes") void fetch("/api/cart-recovery", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: details.email, name: `${details.firstName} ${details.lastName}`, currency, items: itemIds, subtotal: total, consent: true }) });
           trackMetaWithUser("AddPaymentInfo", { value: total, currency, payment_method: gateway, content_ids: itemIds }, details);
           setStep(2);
         }}>
@@ -89,6 +94,7 @@ function CheckoutContent() {
           <label>Address<input name="address" autoComplete="street-address" required/></label>
           <div className="form-split"><label>City<input name="city" autoComplete="address-level2" required/></label><label>ZIP / Postcode<input name="zip" autoComplete="postal-code" required/></label></div>
           <label>Country<select name="country" autoComplete="country"><option value="US">United States</option><option value="GB">United Kingdom</option></select></label>
+          <label className="consent-check"><input name="cartReminder" type="checkbox" value="yes"/> Email me one reminder after 24 hours if I leave without completing this order. I can ignore the message and will not receive repeated cart emails.</label>
           <button className="checkout-submit">Continue to payment →</button>
         </form> : <div className="payment-choice">
           <h2>Choose your secure payment</h2>
@@ -103,8 +109,8 @@ function CheckoutContent() {
       <aside className="order-summary"><span className="eyebrow">Order summary</span>
         {itemIds.map((id, index) => { const product = products.find((item) => item.id === id); return <div className="summary-product" key={`${id}-${index}`}><i>A</i><div><b>{product?.name || "Loading selection…"}</b><small>Limited edition · Made with intention</small></div><strong>{currency} {Number(currency === "GBP" ? product?.price_gbp || 0 : product?.price_usd || 0).toFixed(2)}</strong></div>; })}
         <form className="discount-form" onSubmit={async (event) => { event.preventDefault(); setPaymentError(""); const response = await fetch("/api/discounts/validate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ code: discountCode, currency, subtotal: total }) }); const result = await response.json() as { amount?: number; error?: string }; if (!response.ok) { setDiscountTotal(0); setPaymentError(result.error || "Discount code is unavailable."); return; } setDiscountTotal(Number(result.amount || 0)); }}><input value={discountCode} onChange={(event) => setDiscountCode(event.target.value.toUpperCase())} placeholder="Discount code"/><button>Apply</button></form>
-        <div className="summary-line"><span>Tracked delivery</span><span>{shippingTotal ? `${currency} ${shippingTotal.toFixed(2)}` : "Complimentary"}</span></div>{discountTotal > 0 && <div className="summary-line discount"><span>Discount</span><span>−{currency} {discountTotal.toFixed(2)}</span></div>}<div className="summary-line"><span>Duties</span><span>Included where shown</span></div>
-        <div className="summary-total"><span>Total</span><strong>{currency} {grandTotal.toFixed(2)}</strong></div><p>✓ Secure checkout · ✓ Easy returns · ✓ Global tracking</p>
+        <div className="summary-line"><span>Tracked Fly Logistics delivery</span><span>{shippingTotal ? `${currency} ${shippingTotal.toFixed(2)}` : "Complimentary"}</span></div>{bundleDiscount > 0 && <div className="summary-line discount"><span>2 Ankara dresses for $260</span><span>−USD {bundleDiscount.toFixed(2)}</span></div>}{discountTotal > 0 && <div className="summary-line discount"><span>Discount</span><span>−{currency} {discountTotal.toFixed(2)}</span></div>}<div className="summary-line"><span>Tax (5%)</span><span>{currency} {taxTotal.toFixed(2)}</span></div><div className="summary-line"><span>Duties</span><span>Included where shown</span></div>
+        <div className="summary-total"><span>Total</span><strong>{currency} {grandTotal.toFixed(2)}</strong></div><p>✓ Secure checkout · ✓ Made on request · ✓ Fly Logistics tracking</p>
       </aside>
     </div>
   </main>;

@@ -20,6 +20,7 @@ export type CheckoutRequest = {
   sizes?: string[];
   discountCode?: string;
 };
+const taxRate = 0.05;
 
 function validCustomer(customer: CheckoutCustomer) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.email) &&
@@ -42,7 +43,7 @@ export async function createPendingOrder(input: CheckoutRequest, gateway: "paypa
   }
   const supabase = createAdminSupabase();
   const { data: products, error } = await supabase.from("products")
-    .select("id,name,price_usd,price_gbp,stock,status")
+    .select("id,name,category,price_usd,price_gbp,stock,status")
     .in("id", [...quantities.keys()])
     .eq("status", "active");
   if (error || !products || products.length !== quantities.size) throw new Error("One or more products are unavailable");
@@ -53,6 +54,7 @@ export async function createPendingOrder(input: CheckoutRequest, gateway: "paypa
     return {
       product_id: product.id,
       product_name: product.name,
+      category: product.category,
       quantity,
       unit_price: Number(input.currency === "GBP" ? product.price_gbp : product.price_usd),
     };
@@ -62,17 +64,25 @@ export async function createPendingOrder(input: CheckoutRequest, gateway: "paypa
   const shippingTotal = shippingRule && (shippingRule.free_over === null || subtotal < Number(shippingRule.free_over)) ? Number(shippingRule.rate) : 0;
   let discountTotal = 0;
   let discountCode: string | null = null;
+  if (input.currency === "USD") {
+    const ankaraUnits = items.flatMap((item) => item.category.toLowerCase().includes("ankara") ? Array(item.quantity).fill(item.unit_price) as number[] : []).sort((a, b) => b - a);
+    for (let index = 0; index + 1 < ankaraUnits.length; index += 2) discountTotal += Math.max(0, ankaraUnits[index] + ankaraUnits[index + 1] - 260);
+    if (discountTotal > 0) discountCode = "ANKARA2FOR260";
+  }
   if (input.discountCode?.trim()) {
     const code = input.discountCode.trim().toUpperCase();
     const now = new Date().toISOString();
     const { data: discount } = await supabase.from("discount_codes").select("code,kind,value,currency,minimum_order,max_uses,uses,starts_at,ends_at")
       .eq("code", code).eq("active", true).maybeSingle();
     if (!discount || (discount.currency && discount.currency !== input.currency) || subtotal < Number(discount.minimum_order) || (discount.max_uses && discount.uses >= discount.max_uses) || (discount.starts_at && discount.starts_at > now) || (discount.ends_at && discount.ends_at < now)) throw new Error("Discount code is not valid for this order");
-    discountTotal = discount.kind === "percent" ? subtotal * Math.min(Number(discount.value), 100) / 100 : Math.min(Number(discount.value), subtotal);
-    discountTotal = Math.round(discountTotal * 100) / 100;
-    discountCode = code;
+    const codeDiscount = discount.kind === "percent" ? subtotal * Math.min(Number(discount.value), 100) / 100 : Math.min(Number(discount.value), subtotal);
+    discountTotal += codeDiscount;
+    discountCode = discountCode ? `${discountCode}+${code}` : code;
   }
-  const total = Math.max(0, subtotal - discountTotal + shippingTotal);
+  discountTotal = Math.round(Math.min(discountTotal, subtotal) * 100) / 100;
+  const taxableTotal = Math.max(0, subtotal - discountTotal);
+  const taxTotal = Math.round(taxableTotal * taxRate * 100) / 100;
+  const total = taxableTotal + taxTotal + shippingTotal;
   const orderNumber = `AF-${new Date().getUTCFullYear()}-${randomUUID().slice(0, 8).toUpperCase()}`;
   const { data: order, error: orderError } = await supabase.from("orders").insert({
     order_number: orderNumber,
@@ -90,11 +100,16 @@ export async function createPendingOrder(input: CheckoutRequest, gateway: "paypa
     discount_code: discountCode,
     discount_total: discountTotal,
     shipping_total: shippingTotal,
+    tax_total: taxTotal,
     total,
     payment_gateway: gateway,
   }).select("id,order_number,currency,total,tracking_token").single();
   if (orderError || !order) throw new Error("Unable to create order");
-  const { error: itemError } = await supabase.from("order_items").insert(items.map((item) => ({ ...item, order_id: order.id, selected_size: input.sizes?.[input.items.indexOf(item.product_id)] || null })));
+  await supabase.from("abandoned_carts").update({ status: "converted", updated_at: new Date().toISOString() }).eq("email", input.customer.email.trim().toLowerCase()).eq("status", "pending");
+  const { error: itemError } = await supabase.from("order_items").insert(items.map((item) => ({
+    product_id: item.product_id, product_name: item.product_name, quantity: item.quantity, unit_price: item.unit_price,
+    order_id: order.id, selected_size: input.sizes?.[input.items.indexOf(item.product_id)] || null,
+  })));
   if (itemError) {
     await supabase.from("orders").delete().eq("id", order.id);
     throw new Error("Unable to save order items");

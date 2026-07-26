@@ -4,10 +4,10 @@ export const metadata = { title: "Shipping & Returns", description: "USA and UK 
 
 export default function ShippingReturnsPage() {
   return <main><PremiumHeader/><article className="policy-page"><span className="eyebrow">Customer care</span><h1>Shipping &amp; returns</h1>
-    <h2>United States delivery</h2><p>Orders are shipped with tracking. Complimentary standard delivery applies when the cart reaches the threshold shown at checkout. Estimated delivery times begin after order processing.</p>
-    <h2>United Kingdom delivery</h2><p>UK orders are shipped with tracking. Duties and taxes are displayed or described during checkout where available. Customers remain responsible for charges not collected at checkout.</p>
-    <h2>Processing</h2><p>Ready-to-wear pieces normally enter processing within two business days. Made-to-order pieces may require additional production time, which will be shown on the product page.</p>
-    <h2>Returns</h2><p>Eligible unworn merchandise may be returned within 14 days of delivery with original tags attached. Final-sale, altered and made-to-order pieces are not returnable unless faulty.</p>
-    <h2>Start a return</h2><p>Contact customer support with your order number before returning an item. The final support email and return address will be published when supplied by the business owner.</p>
+    <h2>USA and UK delivery</h2><p>Fly Logistics provides tracked doorstep delivery for orders in the USA and UK. Track your parcel through <a href="https://www.flylogistics.com.ng" target="_blank" rel="noreferrer">Fly Logistics</a>. Delivery charges and complimentary-delivery thresholds are shown at checkout.</p>
+    <h2>Made-to-order processing</h2><p>Every outfit is made on request. Please allow 5–7 working days for production before dispatch. Delivery time begins after production is complete.</p>
+    <h2>Measurements and sizing</h2><p>Please review the size guide carefully. If you are unsure of your size, forward your measurements to customer support before production begins.</p>
+    <h2>No returns or refunds</h2><p>All outfits are made specifically on request. For this reason, orders cannot be returned, exchanged or refunded after production begins. This policy does not remove any mandatory rights that apply to faulty or incorrectly supplied goods under applicable law.</p>
+    <h2>Support</h2><p>Customer support operates 24 hours a day, seven days a week.</p>
   </article></main>;
 }
