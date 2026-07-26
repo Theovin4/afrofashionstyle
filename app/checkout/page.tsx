@@ -22,7 +22,7 @@ function CheckoutContent() {
   const [isPaying, setIsPaying] = useState(false);
   const [discountCode, setDiscountCode] = useState("");
   const [discountTotal, setDiscountTotal] = useState(0);
-  const [shippingRules, setShippingRules] = useState<Array<{ country: string; currency: string; rate: number; free_over: number | null }>>([]);
+  const [shippingRules, setShippingRules] = useState<Array<{ country: string; currency: string; rate: number; free_over: number | null; second_item_rate: number | null; additional_item_rate: number | null }>>([]);
 
   useEffect(() => {
     void fetch("/api/products").then((response) => response.json()).then((result: { products?: Product[] }) => {
@@ -41,7 +41,8 @@ function CheckoutContent() {
   const ankaraPrices = itemIds.map((id) => products.find((item) => item.id === id)).filter((product) => product?.category.toLowerCase().includes("ankara")).map((product) => Number(product?.price_usd || 0)).sort((a, b) => b - a);
   const bundleDiscount = currency === "USD" ? ankaraPrices.reduce((sum, price, index) => index % 2 === 0 && ankaraPrices[index + 1] !== undefined ? sum + Math.max(0, price + ankaraPrices[index + 1] - 260) : sum, 0) : 0;
   const shippingRule = shippingRules.find((rule) => rule.country === customer?.country && rule.currency === currency);
-  const shippingTotal = shippingRule && (shippingRule.free_over === null || total < Number(shippingRule.free_over)) ? Number(shippingRule.rate) : 0;
+  const tieredShipping = shippingRule ? Number(shippingRule.rate) + (itemIds.length >= 2 ? Number(shippingRule.second_item_rate || 0) : 0) + Math.max(0, itemIds.length - 2) * Number(shippingRule.additional_item_rate || 0) : 0;
+  const shippingTotal = shippingRule && (shippingRule.free_over === null || total < Number(shippingRule.free_over)) ? tieredShipping : 0;
   const taxableTotal = Math.max(0, total - discountTotal - bundleDiscount);
   const taxTotal = Math.round(taxableTotal * .05 * 100) / 100;
   const grandTotal = taxableTotal + taxTotal + shippingTotal;
