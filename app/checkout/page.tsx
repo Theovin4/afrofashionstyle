@@ -11,7 +11,7 @@ type Customer = { email: string; phone: string; firstName: string; lastName: str
 
 function CheckoutContent() {
   const params = useSearchParams();
-  const gateway = params.get("gateway") === "paypal" ? "PayPal" : "Flutterwave";
+  const [gateway, setGateway] = useState<"PayPal" | "Flutterwave">(params.get("gateway") === "paypal" ? "PayPal" : "Flutterwave");
   const currency = params.get("currency") === "GBP" ? "GBP" : "USD";
   const itemIds = useMemo(() => (params.get("items") || "").split(",").filter((id) => /^[0-9a-f-]{36}$/i.test(id)).slice(0, 20), [params]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -80,7 +80,9 @@ function CheckoutContent() {
           <label>Country<select name="country" autoComplete="country"><option value="US">United States</option><option value="GB">United Kingdom</option></select></label>
           <button className="checkout-submit">Continue to payment →</button>
         </form> : <div className="payment-choice">
-          <h2>Pay securely with {gateway}</h2><p>You’ll continue to {gateway} to authorize your payment. Your order is confirmed only after server verification.</p>
+          <h2>Choose your secure payment</h2>
+          <div className="gateway-selector"><button className={gateway === "Flutterwave" ? "active" : ""} onClick={() => setGateway("Flutterwave")}><b>Flutterwave</b><span>Cards and local payment options</span></button><button className={gateway === "PayPal" ? "active" : ""} onClick={() => setGateway("PayPal")}><b>PayPal</b><span>PayPal balance or linked card</span></button></div>
+          <p>You’ll continue to {gateway} to authorize your payment. Your order is confirmed only after server verification.</p>
           <div className="secure-box"><b>{gateway}</b><span>Encrypted · Buyer protected · Verified confirmation</span></div>
           <button className="checkout-submit" onClick={startPayment} disabled={isPaying}>{isPaying ? `Opening ${gateway}…` : `Pay ${currency} ${total.toFixed(2)} with ${gateway} →`}</button>
           {paymentError && <p className="payment-error" role="alert">{paymentError}</p>}
