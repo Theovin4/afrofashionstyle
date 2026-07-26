@@ -62,6 +62,14 @@ export async function POST(request: NextRequest) {
   const forwardedFor = request.headers.get("x-forwarded-for");
   const clientIp = forwardedFor?.split(",")[0]?.trim();
   const user = body.userData ?? {};
+  let sourceFbclid: string | undefined;
+  try {
+    const candidate = new URL(body.sourceUrl || request.nextUrl.origin).searchParams.get("fbclid")?.trim();
+    if (candidate && /^[A-Za-z0-9_.-]{8,500}$/.test(candidate)) sourceFbclid = candidate;
+  } catch {
+    sourceFbclid = undefined;
+  }
+  const derivedFbc = sourceFbclid ? `fb.1.${Date.now()}.${sourceFbclid}` : undefined;
   const userData = compact({
     em: hash(user.email),
     ph: hash(user.phone?.replace(/[^\d+]/g, "")),
@@ -74,7 +82,7 @@ export async function POST(request: NextRequest) {
     client_ip_address: clientIp,
     client_user_agent: request.headers.get("user-agent") ?? undefined,
     fbp: user.fbp,
-    fbc: user.fbc,
+    fbc: user.fbc || derivedFbc,
   });
 
   const payload: Record<string, unknown> = {

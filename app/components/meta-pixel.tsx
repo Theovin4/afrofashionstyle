@@ -13,14 +13,31 @@ declare global {
 
 export const META_PIXEL_ID = "4611600329085591";
 
+function readCookies() {
+  return Object.fromEntries(document.cookie.split("; ").filter(Boolean).map((item) => {
+    const separator = item.indexOf("=");
+    return [item.slice(0, separator), decodeURIComponent(item.slice(separator + 1))];
+  }));
+}
+
+function attributionData() {
+  const cookies = readCookies();
+  const fbclid = new URLSearchParams(window.location.search).get("fbclid")?.trim();
+  if (fbclid && /^[A-Za-z0-9_.-]{8,500}$/.test(fbclid)) {
+    const expectedSuffix = `.${fbclid}`;
+    if (!cookies._fbc?.endsWith(expectedSuffix)) {
+      cookies._fbc = `fb.1.${Date.now()}.${fbclid}`;
+      document.cookie = `_fbc=${encodeURIComponent(cookies._fbc)}; Max-Age=7776000; Path=/; SameSite=Lax; Secure`;
+    }
+  }
+  return { fbp: cookies._fbp, fbc: cookies._fbc };
+}
+
 export function trackMeta(event: string, parameters?: Record<string, unknown>) {
   if (typeof window === "undefined") return;
   const eventId = crypto.randomUUID();
   window.fbq?.("track", event, parameters, { eventID: eventId });
-  const cookies = Object.fromEntries(document.cookie.split("; ").filter(Boolean).map((item) => {
-    const separator = item.indexOf("=");
-    return [item.slice(0, separator), decodeURIComponent(item.slice(separator + 1))];
-  }));
+  const attribution = attributionData();
   void fetch("/api/meta/events", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -30,7 +47,7 @@ export function trackMeta(event: string, parameters?: Record<string, unknown>) {
       eventId,
       sourceUrl: window.location.href,
       customData: parameters,
-      userData: { fbp: cookies._fbp, fbc: cookies._fbc },
+      userData: attribution,
     }),
   }).catch(() => undefined);
 }
@@ -43,10 +60,7 @@ export function trackMetaWithUser(
   if (typeof window === "undefined") return;
   const eventId = crypto.randomUUID();
   window.fbq?.("track", event, parameters, { eventID: eventId });
-  const cookies = Object.fromEntries(document.cookie.split("; ").filter(Boolean).map((item) => {
-    const separator = item.indexOf("=");
-    return [item.slice(0, separator), decodeURIComponent(item.slice(separator + 1))];
-  }));
+  const attribution = attributionData();
   void fetch("/api/meta/events", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -56,7 +70,7 @@ export function trackMetaWithUser(
       eventId,
       sourceUrl: window.location.href,
       customData: parameters,
-      userData: { ...userData, fbp: cookies._fbp, fbc: cookies._fbc },
+      userData: { ...userData, ...attribution },
     }),
   }).catch(() => undefined);
 }
@@ -66,7 +80,8 @@ function RouteTracker() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    const timer = window.setTimeout(() => trackMeta("PageView"), 250);
+    attributionData();
+    const timer = window.setTimeout(() => trackMeta("PageView"), 500);
     return () => window.clearTimeout(timer);
   }, [pathname, searchParams]);
 
