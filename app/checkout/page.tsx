@@ -9,11 +9,13 @@ function CheckoutContent() {
   const params = useSearchParams();
   const gateway = params.get("gateway") === "paypal" ? "PayPal" : "Flutterwave";
   const total = params.get("total") || "189";
-  const currency = params.get("currency") || "USD";
+  const currency = params.get("currency") === "GBP" ? "GBP" : "USD";
   const [step, setStep] = useState(1);
   const [paymentError, setPaymentError] = useState("");
   const [isPaying, setIsPaying] = useState(false);
-  const flutterwaveUrl = process.env.NEXT_PUBLIC_FLUTTERWAVE_PAYMENT_LINK;
+  const flutterwaveUrl = currency === "GBP"
+    ? process.env.NEXT_PUBLIC_FLUTTERWAVE_PAYMENT_LINK_GBP
+    : process.env.NEXT_PUBLIC_FLUTTERWAVE_PAYMENT_LINK_USD;
 
   async function startPayPalOrder() {
     setIsPaying(true);
