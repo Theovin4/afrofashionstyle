@@ -26,6 +26,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const product = await getProduct((await params).slug);
   if (!product) notFound();
+  const { data: relatedRows } = await createPublicSupabase().from("products")
+    .select("id,name,slug,description,category,price_usd,price_gbp,stock,status,featured,product_images(id,secure_url,alt_text,position)")
+    .eq("status", "active").eq("category", product.category).neq("id", product.id).limit(3);
   const schema = {
     "@context": "https://schema.org", "@type": "Product", name: product.name, description: product.description,
     image: product.product_images?.map((image) => image.secure_url), sku: product.id, brand: { "@type": "Brand", name: "Afro.Fashionstyle" },
@@ -34,5 +37,5 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       { "@type": "Offer", priceCurrency: "GBP", price: Number(product.price_gbp).toFixed(2), availability: product.stock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock" },
     ],
   };
-  return <main><PremiumHeader/><ProductDetail product={product}/><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}/></main>;
+  return <main><PremiumHeader/><ProductDetail product={product} related={(relatedRows || []) as Product[]}/><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}/></main>;
 }

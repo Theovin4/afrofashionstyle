@@ -2,12 +2,15 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import { useEffect } from "react";
 import type { Product } from "../../lib/commerce-types";
 import { useCart } from "../../components/cart-provider";
+import { ProductCard } from "../../components/product-card";
+import { trackMeta } from "../../components/meta-pixel";
 
 const sizes = ["US 2", "US 4", "US 6", "US 8", "US 10", "US 12", "US 14", "US 16", "US 18"];
 
-export function ProductDetail({ product }: { product: Product }) {
+export function ProductDetail({ product, related }: { product: Product; related: Product[] }) {
   const { addItem, currency } = useCart();
   const [size, setSize] = useState("");
   const [sizeError, setSizeError] = useState(false);
@@ -16,13 +19,21 @@ export function ProductDetail({ product }: { product: Product }) {
   const image = product.product_images?.[0];
   const price = Number(currency === "GBP" ? product.price_gbp : product.price_usd);
 
+  useEffect(() => {
+    const key = "afro-recently-viewed";
+    const current = JSON.parse(localStorage.getItem(key) || "[]") as string[];
+    localStorage.setItem(key, JSON.stringify([product.slug, ...current.filter((slug) => slug !== product.slug)].slice(0, 8)));
+    trackMeta("ViewContent", { content_name: product.name, content_category: product.category, content_ids: [product.id], content_type: "product", value: price, currency });
+  }, [product.id, product.slug, product.name, product.category, price, currency]);
+
   function add() {
     if (!size) { setSizeError(true); return; }
     addItem(product, size);
     setSizeError(false);
   }
 
-  return <section className="product-detail">
+  return <>
+  <section className="product-detail">
     <div className="product-gallery">
       {image ? <Image src={image.secure_url} alt={image.alt_text || product.name} fill priority sizes="(max-width: 900px) 100vw, 58vw"/> : <div className="product-detail-placeholder">AF</div>}
       <span>Limited edition</span>
@@ -52,5 +63,7 @@ export function ProductDetail({ product }: { product: Product }) {
         </form>
       </section>
     </div>
-  </section>;
+  </section>
+  {related.length > 0 && <section className="related-products"><span className="eyebrow">Complete the story</span><h2>You may also love</h2><div className="product-grid">{related.map((item) => <ProductCard key={item.id} product={item}/>)}</div></section>}
+  </>;
 }
