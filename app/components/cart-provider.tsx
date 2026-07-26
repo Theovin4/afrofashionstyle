@@ -98,7 +98,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           </article>)}
         </div>
         <footer><div><span>Subtotal</span><strong>{currency} {total.toFixed(2)}</strong></div><p>Tracked delivery and taxes calculated at checkout.</p>
-          <Link className={`button primary ${!items.length ? "disabled" : ""}`} href={items.length ? `/checkout?items=${items.flatMap((item) => Array(item.quantity).fill(item.id)).join(",")}&currency=${currency}` : "#"} onClick={() => setOpen(false)}>Secure checkout</Link>
+          <Link className={`button primary ${!items.length ? "disabled" : ""}`} href={items.length ? `/checkout?items=${items.flatMap((item) => Array(item.quantity).fill(item.id)).join(",")}&sizes=${items.flatMap((item) => Array(item.quantity).fill(encodeURIComponent(item.size))).join(",")}&currency=${currency}` : "#"} onClick={() => setOpen(false)}>Secure checkout</Link>
           <button onClick={() => setOpen(false)}>Continue shopping</button>
         </footer>
       </aside>

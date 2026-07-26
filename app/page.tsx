@@ -7,6 +7,7 @@ import { useCart } from "./components/cart-provider";
 import { trackMeta } from "./components/meta-pixel";
 import { PremiumHeader } from "./components/premium-header";
 import { ProductCard } from "./components/product-card";
+import { SiteFooter } from "./components/site-footer";
 import type { Product } from "./lib/commerce-types";
 
 export default function Home() {
@@ -52,7 +53,7 @@ export default function Home() {
       <div><strong>{currency === "USD" ? "$" : "£"}{total.toFixed(2)}</strong><button onClick={() => { if (count) { trackMeta("InitiateCheckout", { value: total, currency, num_items: count, content_ids: items.map((item) => item.id) }); setOpen(true); } }} className={`button primary ${!count ? "disabled" : ""}`}>Review bag &amp; checkout</button></div>
     </section>
 
-    <footer><div className="footer-brand"><Image src="/afro-fashionstyle-logo.png" alt="" width={180} height={90}/><p>Contemporary African fashion,<br/>designed without borders.</p></div><div><b>Shop</b><Link href="/shop">New arrivals</Link><Link href="/shop">Dresses</Link><Link href="/shop">Occasion wear</Link><Link href="/shop">Made to order</Link></div><div><b>Care</b><a href="#">Size guide</a><a href="#">Delivery &amp; returns</a><Link href="/orders/track">Track an order</Link><a href="#">Garment care</a></div><div><b>Follow</b><a href="#">Instagram</a><a href="#">Pinterest</a><a href="#">TikTok</a><Link href="/admin">Admin studio</Link></div><small>© 2026 Afro.Fashionstyle · Privacy · Terms · Accessibility</small></footer>
+    <SiteFooter/>
     {notice && <div className="toast" role="status">{notice}</div>}
   </main>;
 }

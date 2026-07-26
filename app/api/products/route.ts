@@ -11,7 +11,7 @@ export async function GET() {
   try {
     const { data, error } = await createPublicSupabase()
       .from("products")
-      .select("id,name,slug,description,category,price_usd,price_gbp,stock,status,featured,product_images(id,secure_url,alt_text,position)")
+      .select("id,name,slug,description,category,price_usd,price_gbp,stock,status,featured,product_images(id,secure_url,alt_text,position),product_variants(id,size,color,sku,stock,active),product_reviews(id,customer_name,rating,title,body,verified_purchase,created_at)")
       .eq("status", "active")
       .order("created_at", { ascending: false });
     if (error) throw error;
@@ -32,6 +32,7 @@ export async function POST(request: Request) {
     const priceUsd = Number(form.get("priceUsd"));
     const priceGbp = Number(form.get("priceGbp"));
     const stock = Number(form.get("stock"));
+    const sizes = String(form.get("sizes") || "US 2,US 4,US 6,US 8,US 10,US 12,US 14,US 16,US 18").split(",").map((size) => size.trim()).filter(Boolean).slice(0, 20);
     const image = form.get("image");
     if (!name || !Number.isFinite(priceUsd) || priceUsd < 0 || !Number.isFinite(priceGbp) || priceGbp < 0 || !Number.isInteger(stock) || stock < 0) {
       return Response.json({ error: "Valid name, USD/GBP prices and inventory are required" }, { status: 400 });
@@ -92,6 +93,15 @@ export async function POST(request: Request) {
       height: uploaded.height,
     });
     if (imageError) throw imageError;
+    if (sizes.length) {
+      const perSize = Math.floor(stock / sizes.length);
+      const remainder = stock % sizes.length;
+      const { error: variantError } = await supabase.from("product_variants").insert(sizes.map((size, index) => ({
+        product_id: product.id, size, color: "As shown", sku: `${product.slug}-${size.replace(/[^a-z0-9]/gi, "").toUpperCase()}`,
+        stock: perSize + (index < remainder ? 1 : 0),
+      })));
+      if (variantError) console.error("Product variants could not be created", variantError);
+    }
     return Response.json({ product: { ...product, imageUrl: uploaded.secure_url } }, { status: 201 });
   } catch (error) {
     console.error("Product publish failed", error);

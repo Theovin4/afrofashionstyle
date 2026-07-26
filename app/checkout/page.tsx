@@ -14,11 +14,15 @@ function CheckoutContent() {
   const [gateway, setGateway] = useState<"PayPal" | "Flutterwave">(params.get("gateway") === "paypal" ? "PayPal" : "Flutterwave");
   const currency = params.get("currency") === "GBP" ? "GBP" : "USD";
   const itemIds = useMemo(() => (params.get("items") || "").split(",").filter((id) => /^[0-9a-f-]{36}$/i.test(id)).slice(0, 20), [params]);
+  const sizes = useMemo(() => (params.get("sizes") || "").split(",").map(decodeURIComponent).slice(0, itemIds.length), [params, itemIds.length]);
   const [products, setProducts] = useState<Product[]>([]);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [step, setStep] = useState(1);
   const [paymentError, setPaymentError] = useState("");
   const [isPaying, setIsPaying] = useState(false);
+  const [discountCode, setDiscountCode] = useState("");
+  const [discountTotal, setDiscountTotal] = useState(0);
+  const [shippingRules, setShippingRules] = useState<Array<{ country: string; currency: string; rate: number; free_over: number | null }>>([]);
 
   useEffect(() => {
     void fetch("/api/products").then((response) => response.json()).then((result: { products?: Product[] }) => {
@@ -26,10 +30,17 @@ function CheckoutContent() {
     }).catch(() => setPaymentError("Your order could not be loaded."));
   }, [itemIds]);
 
+  useEffect(() => {
+    void fetch("/api/commerce-config").then((response) => response.json()).then((result: { shipping?: typeof shippingRules }) => setShippingRules(result.shipping || [])).catch(() => undefined);
+  }, []);
+
   const total = itemIds.reduce((sum, id) => {
     const product = products.find((item) => item.id === id);
     return sum + Number(currency === "GBP" ? product?.price_gbp || 0 : product?.price_usd || 0);
   }, 0);
+  const shippingRule = shippingRules.find((rule) => rule.country === customer?.country && rule.currency === currency);
+  const shippingTotal = shippingRule && (shippingRule.free_over === null || total < Number(shippingRule.free_over)) ? Number(shippingRule.rate) : 0;
+  const grandTotal = Math.max(0, total - discountTotal + shippingTotal);
 
   async function startPayment() {
     if (!customer || !itemIds.length) return;
@@ -39,7 +50,7 @@ function CheckoutContent() {
       const endpoint = gateway === "PayPal" ? "/api/paypal/orders" : "/api/flutterwave/checkout";
       const response = await fetch(endpoint, {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ items: itemIds, currency, customer }),
+        body: JSON.stringify({ items: itemIds, sizes, currency, customer, discountCode: discountCode || undefined }),
       });
       const result = await response.json() as { approveUrl?: string; checkoutUrl?: string; error?: string };
       const destination = result.approveUrl || result.checkoutUrl;
@@ -84,15 +95,16 @@ function CheckoutContent() {
           <div className="gateway-selector"><button className={gateway === "Flutterwave" ? "active" : ""} onClick={() => setGateway("Flutterwave")}><b>Flutterwave</b><span>Cards and local payment options</span></button><button className={gateway === "PayPal" ? "active" : ""} onClick={() => setGateway("PayPal")}><b>PayPal</b><span>PayPal balance or linked card</span></button></div>
           <p>You’ll continue to {gateway} to authorize your payment. Your order is confirmed only after server verification.</p>
           <div className="secure-box"><b>{gateway}</b><span>Encrypted · Buyer protected · Verified confirmation</span></div>
-          <button className="checkout-submit" onClick={startPayment} disabled={isPaying}>{isPaying ? `Opening ${gateway}…` : `Pay ${currency} ${total.toFixed(2)} with ${gateway} →`}</button>
+          <button className="checkout-submit" onClick={startPayment} disabled={isPaying}>{isPaying ? `Opening ${gateway}…` : `Pay ${currency} ${grandTotal.toFixed(2)} with ${gateway} →`}</button>
           {paymentError && <p className="payment-error" role="alert">{paymentError}</p>}
           <button className="change-payment" onClick={() => setStep(1)}>← Edit delivery details</button>
         </div>}
       </section>
       <aside className="order-summary"><span className="eyebrow">Order summary</span>
         {itemIds.map((id, index) => { const product = products.find((item) => item.id === id); return <div className="summary-product" key={`${id}-${index}`}><i>A</i><div><b>{product?.name || "Loading selection…"}</b><small>Limited edition · Made with intention</small></div><strong>{currency} {Number(currency === "GBP" ? product?.price_gbp || 0 : product?.price_usd || 0).toFixed(2)}</strong></div>; })}
-        <div className="summary-line"><span>Tracked delivery</span><span>Complimentary</span></div><div className="summary-line"><span>Duties</span><span>Included where shown</span></div>
-        <div className="summary-total"><span>Total</span><strong>{currency} {total.toFixed(2)}</strong></div><p>✓ Secure checkout · ✓ Easy returns · ✓ Global tracking</p>
+        <form className="discount-form" onSubmit={async (event) => { event.preventDefault(); setPaymentError(""); const response = await fetch("/api/discounts/validate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ code: discountCode, currency, subtotal: total }) }); const result = await response.json() as { amount?: number; error?: string }; if (!response.ok) { setDiscountTotal(0); setPaymentError(result.error || "Discount code is unavailable."); return; } setDiscountTotal(Number(result.amount || 0)); }}><input value={discountCode} onChange={(event) => setDiscountCode(event.target.value.toUpperCase())} placeholder="Discount code"/><button>Apply</button></form>
+        <div className="summary-line"><span>Tracked delivery</span><span>{shippingTotal ? `${currency} ${shippingTotal.toFixed(2)}` : "Complimentary"}</span></div>{discountTotal > 0 && <div className="summary-line discount"><span>Discount</span><span>−{currency} {discountTotal.toFixed(2)}</span></div>}<div className="summary-line"><span>Duties</span><span>Included where shown</span></div>
+        <div className="summary-total"><span>Total</span><strong>{currency} {grandTotal.toFixed(2)}</strong></div><p>✓ Secure checkout · ✓ Easy returns · ✓ Global tracking</p>
       </aside>
     </div>
   </main>;

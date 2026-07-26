@@ -7,7 +7,7 @@ import { ProductDetail } from "./product-detail";
 
 async function getProduct(slug: string) {
   const { data } = await createPublicSupabase().from("products")
-    .select("id,name,slug,description,category,price_usd,price_gbp,stock,status,featured,product_images(id,secure_url,alt_text,position)")
+    .select("id,name,slug,description,category,price_usd,price_gbp,stock,status,featured,product_images(id,secure_url,alt_text,position),product_variants(id,size,color,sku,stock,active),product_reviews(id,customer_name,rating,title,body,verified_purchase,created_at)")
     .eq("slug", slug).eq("status", "active").single();
   return data as Product | null;
 }

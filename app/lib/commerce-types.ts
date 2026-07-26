@@ -19,6 +19,8 @@ export type Product = {
   status: string;
   featured: boolean;
   product_images?: ProductImage[];
+  product_variants?: Array<{ id: string; size: string; color: string; sku: string; stock: number; active: boolean }>;
+  product_reviews?: Array<{ id: string; customer_name: string; rating: number; title: string; body: string; verified_purchase: boolean; created_at: string }>;
 };
 
 export type CartItem = Pick<Product, "id" | "name" | "slug" | "price_usd" | "price_gbp" | "stock"> & {

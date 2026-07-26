@@ -11,6 +11,8 @@ export function ProductDetail({ product }: { product: Product }) {
   const { addItem, currency } = useCart();
   const [size, setSize] = useState("");
   const [sizeError, setSizeError] = useState(false);
+  const [reviewMessage, setReviewMessage] = useState("");
+  const [wishlisted, setWishlisted] = useState(false);
   const image = product.product_images?.[0];
   const price = Number(currency === "GBP" ? product.price_gbp : product.price_usd);
 
@@ -28,12 +30,27 @@ export function ProductDetail({ product }: { product: Product }) {
     <div className="product-info"><span className="eyebrow">{product.category}</span><h1>{product.name}</h1><p className="detail-price">{currency} {price.toFixed(2)}</p>
       <p className="detail-description">{product.description || "A considered Afro.Fashionstyle silhouette, crafted to celebrate Nigerian textile heritage through a modern feminine lens."}</p>
       <div className="size-heading"><b>Select size</b><button>Size guide</button></div>
-      <div className="size-grid">{sizes.map((item) => <button className={size === item ? "active" : ""} onClick={() => { setSize(item); setSizeError(false); }} key={item}>{item}</button>)}</div>
+      <div className="size-grid">{(product.product_variants?.filter((variant) => variant.active && variant.stock > 0).map((variant) => variant.size) || sizes).map((item) => <button className={size === item ? "active" : ""} onClick={() => { setSize(item); setSizeError(false); }} key={item}>{item}</button>)}</div>
       {sizeError && <p className="size-error">Please select your size.</p>}
       <button className="add-to-bag" disabled={product.stock < 1} onClick={add}>{product.stock ? "Add to bag" : "Sold out"} · {currency === "USD" ? "$" : "£"}{price.toFixed(2)}</button>
+      <button className="wishlist-button" onClick={() => { const next = !wishlisted; setWishlisted(next); localStorage.setItem(`wishlist:${product.id}`, String(next)); }}>{wishlisted ? "♥ Saved to wishlist" : "♡ Save to wishlist"}</button>
       <div className="product-promises"><p><b>Complimentary delivery</b><span>On US orders over $200</span></p><p><b>Made with intention</b><span>Produced in considered editions</span></p><p><b>Easy returns</b><span>14-day return window</span></p></div>
       <details open><summary>Story &amp; details</summary><p>{product.description || "Designed between Lagos and the USA with a focus on form, movement and cultural expression."}</p></details>
       <details><summary>Delivery &amp; returns</summary><p>Tracked shipping across the USA and UK. Delivery estimates are confirmed at checkout.</p></details>
+      <section className="reviews-block"><span className="eyebrow">Customer stories</span><h2>Reviews</h2>
+        {product.product_reviews?.length ? product.product_reviews.map((review) => <article key={review.id}><b>{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</b><h3>{review.title || "Beautifully made"}</h3><p>{review.body}</p><small>{review.customer_name}{review.verified_purchase ? " · Verified purchase" : ""}</small></article>) : <p>Be the first to share how this piece made you feel.</p>}
+        <form onSubmit={async (event) => {
+          event.preventDefault(); setReviewMessage("Sending…"); const fields = new FormData(event.currentTarget);
+          const response = await fetch("/api/reviews", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+            productId: product.id, name: fields.get("name"), email: fields.get("email"), rating: Number(fields.get("rating")), title: fields.get("title"), body: fields.get("body"),
+          }) }); const result = await response.json() as { message?: string; error?: string }; setReviewMessage(result.message || result.error || "Unable to submit review.");
+          if (response.ok) event.currentTarget.reset();
+        }}>
+          <div className="form-split"><label>Name<input name="name" required/></label><label>Email<input name="email" type="email" required/></label></div>
+          <div className="form-split"><label>Rating<select name="rating" defaultValue="5"><option value="5">5 stars</option><option value="4">4 stars</option><option value="3">3 stars</option><option value="2">2 stars</option><option value="1">1 star</option></select></label><label>Title<input name="title"/></label></div>
+          <label>Your review<textarea name="body" minLength={10} required rows={4}/></label><button>Submit review</button>{reviewMessage && <p role="status">{reviewMessage}</p>}
+        </form>
+      </section>
     </div>
   </section>;
 }
