@@ -66,9 +66,12 @@ export async function createPendingOrder(input: CheckoutRequest, gateway: "paypa
   const shippingTotal = shippingRule && (shippingRule.free_over === null || subtotal < Number(shippingRule.free_over)) ? tieredShipping : 0;
   let discountTotal = 0;
   let discountCode: string | null = null;
-  if (input.currency === "USD") {
+  {
+    const { data: currencySetting } = await supabase.from("site_settings").select("value").eq("key", "currency").maybeSingle();
+    const usdToGbp = Number((currencySetting?.value as { usd_to_gbp?: number } | null)?.usd_to_gbp || .751);
+    const bundleTarget = input.currency === "GBP" ? 260 * usdToGbp : 260;
     const ankaraUnits = items.flatMap((item) => item.category.toLowerCase().includes("ankara") ? Array(item.quantity).fill(item.unit_price) as number[] : []).sort((a, b) => b - a);
-    for (let index = 0; index + 1 < ankaraUnits.length; index += 2) discountTotal += Math.max(0, ankaraUnits[index] + ankaraUnits[index + 1] - 260);
+    for (let index = 0; index + 1 < ankaraUnits.length; index += 2) discountTotal += Math.max(0, ankaraUnits[index] + ankaraUnits[index + 1] - bundleTarget);
     if (discountTotal > 0) discountCode = "ANKARA2FOR260";
   }
   if (input.discountCode?.trim()) {

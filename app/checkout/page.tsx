@@ -23,6 +23,7 @@ function CheckoutContent() {
   const [discountCode, setDiscountCode] = useState("");
   const [discountTotal, setDiscountTotal] = useState(0);
   const [shippingRules, setShippingRules] = useState<Array<{ country: string; currency: string; rate: number; free_over: number | null; second_item_rate: number | null; additional_item_rate: number | null }>>([]);
+  const [usdToGbp, setUsdToGbp] = useState(.751);
 
   useEffect(() => {
     void fetch("/api/products").then((response) => response.json()).then((result: { products?: Product[] }) => {
@@ -31,15 +32,16 @@ function CheckoutContent() {
   }, [itemIds]);
 
   useEffect(() => {
-    void fetch("/api/commerce-config").then((response) => response.json()).then((result: { shipping?: typeof shippingRules }) => setShippingRules(result.shipping || [])).catch(() => undefined);
+    void fetch("/api/commerce-config").then((response) => response.json()).then((result: { shipping?: typeof shippingRules; settings?: { currency?: { usd_to_gbp?: number } } }) => { setShippingRules(result.shipping || []); setUsdToGbp(Number(result.settings?.currency?.usd_to_gbp || .751)); }).catch(() => undefined);
   }, []);
 
   const total = itemIds.reduce((sum, id) => {
     const product = products.find((item) => item.id === id);
     return sum + Number(currency === "GBP" ? product?.price_gbp || 0 : product?.price_usd || 0);
   }, 0);
-  const ankaraPrices = itemIds.map((id) => products.find((item) => item.id === id)).filter((product) => product?.category.toLowerCase().includes("ankara")).map((product) => Number(product?.price_usd || 0)).sort((a, b) => b - a);
-  const bundleDiscount = currency === "USD" ? ankaraPrices.reduce((sum, price, index) => index % 2 === 0 && ankaraPrices[index + 1] !== undefined ? sum + Math.max(0, price + ankaraPrices[index + 1] - 260) : sum, 0) : 0;
+  const ankaraPrices = itemIds.map((id) => products.find((item) => item.id === id)).filter((product) => product?.category.toLowerCase().includes("ankara")).map((product) => Number(currency === "GBP" ? product?.price_gbp || 0 : product?.price_usd || 0)).sort((a, b) => b - a);
+  const bundleTarget = currency === "GBP" ? 260 * usdToGbp : 260;
+  const bundleDiscount = ankaraPrices.reduce((sum, price, index) => index % 2 === 0 && ankaraPrices[index + 1] !== undefined ? sum + Math.max(0, price + ankaraPrices[index + 1] - bundleTarget) : sum, 0);
   const shippingRule = shippingRules.find((rule) => rule.country === customer?.country && rule.currency === currency);
   const tieredShipping = shippingRule ? Number(shippingRule.rate) + (itemIds.length >= 2 ? Number(shippingRule.second_item_rate || 0) : 0) + Math.max(0, itemIds.length - 2) * Number(shippingRule.additional_item_rate || 0) : 0;
   const shippingTotal = shippingRule && (shippingRule.free_over === null || total < Number(shippingRule.free_over)) ? tieredShipping : 0;
@@ -110,7 +112,7 @@ function CheckoutContent() {
       <aside className="order-summary"><span className="eyebrow">Order summary</span>
         {itemIds.map((id, index) => { const product = products.find((item) => item.id === id); return <div className="summary-product" key={`${id}-${index}`}><i>A</i><div><b>{product?.name || "Loading selection…"}</b><small>Limited edition · Made with intention</small></div><strong>{currency} {Number(currency === "GBP" ? product?.price_gbp || 0 : product?.price_usd || 0).toFixed(2)}</strong></div>; })}
         <form className="discount-form" onSubmit={async (event) => { event.preventDefault(); setPaymentError(""); const response = await fetch("/api/discounts/validate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ code: discountCode, currency, subtotal: total }) }); const result = await response.json() as { amount?: number; error?: string }; if (!response.ok) { setDiscountTotal(0); setPaymentError(result.error || "Discount code is unavailable."); return; } setDiscountTotal(Number(result.amount || 0)); }}><input value={discountCode} onChange={(event) => setDiscountCode(event.target.value.toUpperCase())} placeholder="Discount code"/><button>Apply</button></form>
-        <div className="summary-line"><span>Tracked Fly Logistics delivery</span><span>{shippingTotal ? `${currency} ${shippingTotal.toFixed(2)}` : "Complimentary"}</span></div>{bundleDiscount > 0 && <div className="summary-line discount"><span>2 Ankara dresses for $260</span><span>−USD {bundleDiscount.toFixed(2)}</span></div>}{discountTotal > 0 && <div className="summary-line discount"><span>Discount</span><span>−{currency} {discountTotal.toFixed(2)}</span></div>}<div className="summary-line"><span>Tax (5%)</span><span>{currency} {taxTotal.toFixed(2)}</span></div><div className="summary-line"><span>Duties</span><span>Included where shown</span></div>
+        <div className="summary-line"><span>Tracked Fly Logistics delivery</span><span>{shippingTotal ? `${currency} ${shippingTotal.toFixed(2)}` : "Complimentary"}</span></div>{bundleDiscount > 0 && <div className="summary-line discount"><span>2 Ankara dresses for {currency === "GBP" ? "£195.26" : "$260"}</span><span>−{currency} {bundleDiscount.toFixed(2)}</span></div>}{discountTotal > 0 && <div className="summary-line discount"><span>Discount</span><span>−{currency} {discountTotal.toFixed(2)}</span></div>}<div className="summary-line"><span>Tax (5%)</span><span>{currency} {taxTotal.toFixed(2)}</span></div><div className="summary-line"><span>Duties</span><span>Included where shown</span></div>
         <div className="summary-total"><span>Total</span><strong>{currency} {grandTotal.toFixed(2)}</strong></div><p>✓ Secure checkout · ✓ Made on request · ✓ Fly Logistics tracking</p>
       </aside>
     </div>

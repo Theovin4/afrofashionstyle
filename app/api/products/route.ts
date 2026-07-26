@@ -25,12 +25,15 @@ export async function GET() {
 export async function POST(request: Request) {
   if (!(await isAdmin())) return Response.json({ error: "Unauthorized" }, { status: 401 });
   try {
+    const supabase = createAdminSupabase();
+    const { data: currencySetting } = await supabase.from("site_settings").select("value").eq("key", "currency").maybeSingle();
+    const usdToGbp = Number((currencySetting?.value as { usd_to_gbp?: number } | null)?.usd_to_gbp || .751);
     const form = await request.formData();
     const name = String(form.get("name") || "").trim();
     const description = String(form.get("description") || "").trim();
     const category = String(form.get("category") || "Collection");
     const priceUsd = Number(form.get("priceUsd"));
-    const priceGbp = Number(form.get("priceGbp"));
+    const priceGbp = Math.round(priceUsd * usdToGbp * 100) / 100;
     const stock = Number(form.get("stock"));
     const sizes = String(form.get("sizes") || "US 2,US 4,US 6,US 8,US 10,US 12,US 14,US 16,US 18").split(",").map((size) => size.trim()).filter(Boolean).slice(0, 20);
     const image = form.get("image");
@@ -71,7 +74,6 @@ export async function POST(request: Request) {
       stream.end(bytes);
     });
 
-    const supabase = createAdminSupabase();
     const { data: product, error: productError } = await supabase.from("products").insert({
       name,
       slug: `${slugify(name) || "product"}-${Date.now().toString(36)}`,
