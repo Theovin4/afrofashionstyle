@@ -1,2 +1,15 @@
 import Link from "next/link";
-export default async function PaymentSuccess({searchParams}:{searchParams:Promise<Record<string,string>>}){const q=await searchParams;const verified=q.verified==="1";const order=q.order||"PAYMENT-PREVIEW";return <main className="status-page"><div className="status-card"><div className="success-mark">✓</div><span className="eyebrow">{verified?"Payment confirmed":"Payment confirmation preview"}</span><h1>Your story is on its way.</h1><p>{verified?"PayPal has confirmed your payment. Your order has been received and a confirmation is on its way to your inbox.":"This page demonstrates the completed-order experience. A real order is confirmed only after Flutterwave or PayPal verifies payment through a secure webhook."}</p><div className="receipt"><span>Reference <b>{order}</b></span><span>Payment option <b>{q.gateway||"Secure payment"}</b></span><span>{verified?"Total":"Preview total"} <b>{q.currency||"USD"} {q.total||"—"}</b></span></div><div className="status-actions"><Link className="button primary" href={`/orders/track?order=${order}`}>{verified?"Track your order":"Preview tracking"}</Link><Link className="text-link" href="/">Continue shopping →</Link></div></div></main>}
+
+export default async function PaymentSuccess({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
+  const query = await searchParams;
+  const verified = query.verified === "1";
+  const order = query.order || "PAYMENT-PREVIEW";
+  const gateway = query.gateway || "Secure payment";
+  return <main className="status-page"><div className="status-card">
+    <div className="success-mark">✓</div><span className="eyebrow">{verified ? "Payment confirmed" : "Payment confirmation preview"}</span>
+    <h1>Your story is on its way.</h1>
+    <p>{verified ? `${gateway} has confirmed your payment. Your order is now being prepared.` : "A real order is confirmed only after the payment provider verifies it securely."}</p>
+    <div className="receipt"><span>Reference <b>{order}</b></span><span>Payment option <b>{gateway}</b></span><span>{verified ? "Total" : "Preview total"} <b>{query.currency || "USD"} {query.total || "—"}</b></span></div>
+    <div className="status-actions"><Link className="button primary" href={`/orders/track?order=${encodeURIComponent(order)}`}>{verified ? "Track your order" : "Preview tracking"}</Link><Link className="text-link" href="/">Continue shopping →</Link></div>
+  </div></main>;
+}

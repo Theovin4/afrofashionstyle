@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 import { getPayPalAccessToken, paypalBaseUrl } from "../../../lib/paypal";
+import { completeOrder } from "../../../lib/orders";
+import { createAdminSupabase } from "../../../lib/supabase";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -127,6 +129,19 @@ export async function POST(request: Request) {
       event.event_type === "PAYMENT.CAPTURE.COMPLETED" &&
       event.resource?.status === "COMPLETED"
     ) {
+      if (!event.id) return Response.json({ error: "Missing event ID" }, { status: 400 });
+      const supabase = createAdminSupabase();
+      const { data: existing } = await supabase.from("payment_events").select("id").eq("gateway", "paypal").eq("external_event_id", event.id).maybeSingle();
+      if (existing) return Response.json({ received: true, duplicate: true });
+      const providerOrderId = event.resource.supplementary_data?.related_ids?.order_id;
+      const { data: order } = await supabase.from("orders").select("id,currency,total").eq("provider_order_id", providerOrderId || "").maybeSingle();
+      if (!order || event.resource.amount?.currency_code !== order.currency || Math.abs(Number(event.resource.amount?.value) - Number(order.total)) > 0.001) {
+        return Response.json({ error: "Payment did not match an order" }, { status: 409 });
+      }
+      await completeOrder(order.id, event.resource.id || event.id);
+      await supabase.from("payment_events").insert({
+        gateway: "paypal", external_event_id: event.id, event_type: event.event_type, order_id: order.id, payload: event,
+      });
       await sendMetaPurchase(event);
     }
 

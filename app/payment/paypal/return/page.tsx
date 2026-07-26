@@ -21,12 +21,13 @@ function PayPalReturnContent() {
       .then(async (response) => {
         const result = await response.json() as {
           completed?: boolean;
+          orderNumber?: string;
           value?: string;
           currency?: string;
           error?: string;
         };
         if (!response.ok || !result.completed) throw new Error(result.error || "Payment could not be captured.");
-        router.replace(`/payment/success?gateway=PayPal&verified=1&order=${encodeURIComponent(orderId)}&total=${encodeURIComponent(result.value || "")}&currency=${encodeURIComponent(result.currency || "USD")}`);
+        router.replace(`/payment/success?gateway=PayPal&verified=1&order=${encodeURIComponent(result.orderNumber || orderId)}&total=${encodeURIComponent(result.value || "")}&currency=${encodeURIComponent(result.currency || "USD")}`);
       })
       .catch((reason) => {
         if (reason instanceof Error && reason.name !== "AbortError") setError(reason.message);

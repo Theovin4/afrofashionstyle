@@ -93,6 +93,7 @@ export function MetaPixel() {
         <RouteTracker />
       </Suspense>
       <noscript>
+        {/* eslint-disable-next-line @next/next/no-img-element -- Meta requires a 1x1 noscript tracking pixel. */}
         <img
           height="1"
           width="1"
