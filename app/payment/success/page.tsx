@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandStatusLogo } from "../../components/brand-status-logo";
 
 export default async function PaymentSuccess({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
   const query = await searchParams;
@@ -6,6 +7,7 @@ export default async function PaymentSuccess({ searchParams }: { searchParams: P
   const order = query.order || "PAYMENT-PREVIEW";
   const gateway = query.gateway || "Secure payment";
   return <main className="status-page"><div className="status-card">
+    <BrandStatusLogo/>
     <div className="success-mark">✓</div><span className="eyebrow">{verified ? "Payment confirmed" : "Payment confirmation preview"}</span>
     <h1>Your story is on its way.</h1>
     <p>{verified ? `${gateway} has confirmed your payment. Your order is now being prepared.` : "A real order is confirmed only after the payment provider verifies it securely."}</p>

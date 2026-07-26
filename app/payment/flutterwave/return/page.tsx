@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
+import { BrandStatusLogo } from "../../../components/brand-status-logo";
 
 function FlutterwaveReturnContent() {
   const params = useSearchParams();
@@ -10,6 +11,7 @@ function FlutterwaveReturnContent() {
   const transactionId = params.get("transaction_id");
   const status = params.get("status");
   const [error, setError] = useState(status === "successful" && transactionId ? "" : "Flutterwave did not return a successful payment.");
+
   useEffect(() => {
     if (status !== "successful" || !transactionId) return;
     const controller = new AbortController();
@@ -25,11 +27,17 @@ function FlutterwaveReturnContent() {
     });
     return () => controller.abort();
   }, [router, status, transactionId]);
-  return <main className="status-page"><div className="status-card">{error ? <>
-    <div className="cancel-mark">×</div><span className="eyebrow">Payment needs attention</span>
-    <h1>We couldn’t confirm the payment.</h1><p>{error}</p>
-    <Link className="button primary" href="/#bag">Return to checkout</Link>
-  </> : <><div className="success-mark loading-mark">↻</div><span className="eyebrow">Secure Flutterwave confirmation</span><h1>Confirming your payment…</h1><p>Please keep this page open.</p></>}</div></main>;
+
+  return <main className="status-page"><div className="status-card"><BrandStatusLogo/>
+    {error ? <>
+      <div className="cancel-mark">×</div><span className="eyebrow">Payment needs attention</span>
+      <h1>We couldn’t confirm the payment.</h1><p>{error}</p>
+      <Link className="button primary" href="/#bag">Return to checkout</Link>
+    </> : <>
+      <div className="success-mark loading-mark">↻</div><span className="eyebrow">Secure Flutterwave confirmation</span>
+      <h1>Confirming your payment…</h1><p>Please keep this page open.</p>
+    </>}
+  </div></main>;
 }
 
 export default function FlutterwaveReturn() {

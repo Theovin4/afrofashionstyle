@@ -1,2 +1,12 @@
 import Link from "next/link";
-export default function PaymentCancel(){return <main className="status-page"><div className="status-card"><div className="cancel-mark">×</div><span className="eyebrow">Payment not completed</span><h1>Your selection is still waiting.</h1><p>No charge was made. Return to your bag and try again, or choose another secure payment method.</p><div className="status-actions"><Link className="button primary" href="/#bag">Return to your bag</Link><Link className="text-link" href="/">Keep browsing →</Link></div></div></main>}
+import { BrandStatusLogo } from "../../components/brand-status-logo";
+
+export default function PaymentCancel() {
+  return <main className="status-page"><div className="status-card">
+    <BrandStatusLogo/>
+    <div className="cancel-mark">×</div><span className="eyebrow">Payment not completed</span>
+    <h1>Your selection is still waiting.</h1>
+    <p>No charge was made. Return to your bag and try again, or choose another secure payment method.</p>
+    <div className="status-actions"><Link className="button primary" href="/#bag">Return to your bag</Link><Link className="text-link" href="/">Keep browsing →</Link></div>
+  </div></main>;
+}
