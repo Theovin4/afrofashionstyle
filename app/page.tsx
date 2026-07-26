@@ -49,7 +49,7 @@ export default function Home() {
   return <main>
     <div className="announcement">Complimentary US delivery over $200 · Duties included for UK orders</div>
     <header className="site-header">
-      <Link className="brand" href="/" aria-label="Afro.Fashionstyle home"><Image src="/afro-fashionstyle-logo.png" alt="Afro.Fashionstyle" width={190} height={95} priority/></Link>
+      <Link className="brand" href="/" aria-label="Afro.Fashionstyle home"><Image src="/afro-fashionstyle-logo.png" alt="Afro.Fashionstyle" width={220} height={220} priority/></Link>
       <nav aria-label="Main navigation"><a href="#new">New In</a><a href="#shop">Shop</a><a href="#story">Our Story</a><a href="#journal">Journal</a></nav>
       <div className="header-actions">
         <button onClick={() => setCurrency(currency === "USD" ? "GBP" : "USD")} aria-label="Switch currency">{currency}</button>

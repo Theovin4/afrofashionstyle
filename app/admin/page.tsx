@@ -45,13 +45,23 @@ export default function AdminPage() {
 
   return <main className="admin-shell">
     <aside className="admin-nav">
-      <Link href="/" className="admin-logo"><Image src="/afro-fashionstyle-logo.png" alt="Afro.Fashionstyle" width={150} height={70} priority/></Link>
+      <Link href="/" className="admin-logo" aria-label="Afro.Fashionstyle storefront">
+        <Image src="/afro-fashionstyle-logo.png" alt="Afro.Fashionstyle" width={220} height={220} priority/>
+      </Link>
       <p>Commerce studio</p>
       <nav><a className="active" href="#overview">⌂ Overview</a><a href="#products">◇ Products</a><a href="#orders">▤ Orders</a><a href="#customers">♙ Customers</a><a href="#analytics">⌁ Analytics</a></nav>
       <div className="admin-owner"><span>AF</span><small>Administrator<br/>Owner access</small><form action="/api/admin/logout" method="post"><button>Sign out</button></form></div>
     </aside>
     <section className="admin-main">
-      <header><div><span className="eyebrow">Commerce overview</span><h1>Welcome, Admin.</h1></div><div><Link href="/">View store ↗</Link><button onClick={() => setShowForm(true)}>＋ Add product</button></div></header>
+      <header>
+        <div className="admin-heading">
+          <span className="admin-heading-logo" aria-hidden="true">
+            <Image src="/afro-fashionstyle-logo.png" alt="" width={140} height={140}/>
+          </span>
+          <div><span className="eyebrow">Commerce overview</span><h1>Welcome, Admin.</h1></div>
+        </div>
+        <div><Link href="/">View store ↗</Link><button onClick={() => setShowForm(true)}>＋ Add product</button></div>
+      </header>
       {notice && <div className="admin-success">{notice}<button onClick={() => setNotice("")}>×</button></div>}
       <div className="metric-grid" id="overview">
         <article><span>Products</span><strong>{products.length}</strong><small>Stored in Supabase</small></article>
