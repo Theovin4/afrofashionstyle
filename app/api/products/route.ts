@@ -1,15 +1,100 @@
+import { v2 as cloudinary } from "cloudinary";
+import { isAdmin } from "../../lib/admin-auth";
+import { createAdminSupabase, createPublicSupabase } from "../../lib/supabase";
+
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-type Product = { id: number; name: string; category: string; price: number; stock: number; status: string; createdAt: string };
-const store = globalThis as typeof globalThis & { afroProducts?: Product[] };
-store.afroProducts ??= [];
+
+const slugify = (value: string) => value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
 export async function GET() {
-  return Response.json({ products: store.afroProducts });
+  try {
+    const { data, error } = await createPublicSupabase()
+      .from("products")
+      .select("id,name,slug,description,category,price_usd,price_gbp,stock,status,featured,product_images(id,secure_url,alt_text,position)")
+      .eq("status", "active")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return Response.json({ products: data }, { headers: { "cache-control": "public, s-maxage=60, stale-while-revalidate=300" } });
+  } catch (error) {
+    console.error("Product read failed", error);
+    return Response.json({ error: "Unable to load products" }, { status: 503 });
+  }
 }
+
 export async function POST(request: Request) {
-  const value = await request.json() as Partial<Product>;
-  if (!value.name?.trim()) return Response.json({ error: "Name is required" }, { status: 400 });
-  const product: Product = { id: Date.now(), name: value.name.trim(), category: value.category ?? "Collection", price: Number(value.price ?? 0), stock: Number(value.stock ?? 0), status: "Active", createdAt: new Date().toISOString() };
-  store.afroProducts!.unshift(product);
-  return Response.json({ product }, { status: 201 });
+  if (!(await isAdmin())) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const form = await request.formData();
+    const name = String(form.get("name") || "").trim();
+    const description = String(form.get("description") || "").trim();
+    const category = String(form.get("category") || "Collection");
+    const priceUsd = Number(form.get("priceUsd"));
+    const priceGbp = Number(form.get("priceGbp"));
+    const stock = Number(form.get("stock"));
+    const image = form.get("image");
+    if (!name || !Number.isFinite(priceUsd) || priceUsd < 0 || !Number.isFinite(priceGbp) || priceGbp < 0 || !Number.isInteger(stock) || stock < 0) {
+      return Response.json({ error: "Valid name, USD/GBP prices and inventory are required" }, { status: 400 });
+    }
+    if (!(image instanceof File) || !image.type.startsWith("image/") || image.size > 10 * 1024 * 1024) {
+      return Response.json({ error: "A JPG, PNG, WebP or AVIF image under 10MB is required" }, { status: 400 });
+    }
+
+    cloudinary.config({
+      cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+      secure: true,
+    });
+    const bytes = Buffer.from(await image.arrayBuffer());
+    const uploaded = await new Promise<{ asset_id: string; public_id: string; secure_url: string; width: number; height: number }>((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream({
+        folder: "afro-fashionstyle/products",
+        upload_preset: process.env.CLOUDINARY_UPLOAD_PRESET || undefined,
+        resource_type: "image",
+        transformation: [{ width: 1800, height: 2400, crop: "limit", quality: "auto", fetch_format: "auto" }],
+        tags: ["afro-fashionstyle", "product"],
+      }, (error, result) => {
+        if (error || !result?.asset_id || !result.public_id || !result.secure_url || !result.width || !result.height) {
+          reject(error || new Error("Cloudinary returned an incomplete upload result"));
+          return;
+        }
+        resolve({
+          asset_id: result.asset_id,
+          public_id: result.public_id,
+          secure_url: result.secure_url,
+          width: result.width,
+          height: result.height,
+        });
+      });
+      stream.end(bytes);
+    });
+
+    const supabase = createAdminSupabase();
+    const { data: product, error: productError } = await supabase.from("products").insert({
+      name,
+      slug: `${slugify(name) || "product"}-${Date.now().toString(36)}`,
+      description,
+      category,
+      price_usd: priceUsd,
+      price_gbp: priceGbp,
+      stock,
+      status: "active",
+    }).select().single();
+    if (productError) throw productError;
+    const { error: imageError } = await supabase.from("product_images").insert({
+      product_id: product.id,
+      cloudinary_asset_id: uploaded.asset_id,
+      cloudinary_public_id: uploaded.public_id,
+      secure_url: uploaded.secure_url,
+      alt_text: `${name} by Afro.Fashionstyle`,
+      width: uploaded.width,
+      height: uploaded.height,
+    });
+    if (imageError) throw imageError;
+    return Response.json({ product: { ...product, imageUrl: uploaded.secure_url } }, { status: 201 });
+  } catch (error) {
+    console.error("Product publish failed", error);
+    return Response.json({ error: "Product could not be published" }, { status: 500 });
+  }
 }
