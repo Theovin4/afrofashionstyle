@@ -1,9 +1,16 @@
 import { createAdminSupabase } from "../../lib/supabase";
+import { enforceRateLimit, payloadError, readLimitedJson, verifyTurnstile } from "../../lib/security";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  const input = await request.json() as { name?: string; email?: string; phone?: string; subject?: string; message?: string };
+  const limited = await enforceRateLimit(request, "enquiry", 5, 60 * 60);
+  if (limited) return limited;
+  let input: { name?: string; email?: string; phone?: string; subject?: string; message?: string; turnstileToken?: string };
+  try { input = await readLimitedJson(request); } catch (error) { return payloadError(error); }
+  if (!(await verifyTurnstile(request, input.turnstileToken))) {
+    return Response.json({ error: "Please complete the security check." }, { status: 403 });
+  }
   const name = String(input.name || "").trim();
   const email = String(input.email || "").trim().toLowerCase();
   const phone = String(input.phone || "").trim();

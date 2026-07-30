@@ -4,6 +4,7 @@ import { useState } from "react";
 import { PremiumHeader } from "../components/premium-header";
 import { SiteFooter } from "../components/site-footer";
 import { trackMetaWithUser } from "../components/meta-pixel";
+import { Turnstile } from "../components/turnstile";
 
 export default function ContactPage() {
   const [notice, setNotice] = useState("");
@@ -12,7 +13,7 @@ export default function ContactPage() {
     <form onSubmit={async (event) => {
       event.preventDefault(); setSending(true); setNotice(""); const form = event.currentTarget; const fields = new FormData(form);
       const name = String(fields.get("name") || ""); const email = String(fields.get("email") || ""); const phone = String(fields.get("phone") || "");
-      const response = await fetch("/api/enquiries", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, email, phone, subject: fields.get("subject"), message: fields.get("message") }) });
+      const response = await fetch("/api/enquiries", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, email, phone, subject: fields.get("subject"), message: fields.get("message"), turnstileToken: fields.get("cf-turnstile-response") }) });
       const result = await response.json() as { message?: string; error?: string }; setNotice(result.message || result.error || "Please try again."); setSending(false);
       if (response.ok) {
         const [firstName = "", ...lastName] = name.trim().split(/\s+/);
@@ -24,6 +25,7 @@ export default function ContactPage() {
       <label>Phone (optional)<input name="phone" type="tel"/></label>
       <label>What can we help with?<select name="subject"><option>Sizing and measurements</option><option>Made-to-order enquiry</option><option>Styling assistance</option><option>Order support</option></select></label>
       <label>Your message<textarea name="message" required minLength={10} maxLength={3000} rows={6}/></label>
+      <Turnstile action="contact"/>
       <button disabled={sending}>{sending ? "Sending…" : "Send enquiry"}</button>{notice && <p role="status">{notice}</p>}
     </form>
   </section><SiteFooter/></main>;

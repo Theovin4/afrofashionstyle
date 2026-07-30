@@ -7,6 +7,7 @@ import { useCart } from "./components/cart-provider";
 import { PremiumHeader } from "./components/premium-header";
 import { ProductCard } from "./components/product-card";
 import { SiteFooter } from "./components/site-footer";
+import { Turnstile } from "./components/turnstile";
 import type { Product } from "./lib/commerce-types";
 
 export default function Home() {
@@ -45,7 +46,7 @@ export default function Home() {
 
     <section className="editorial" id="journal"><span className="eyebrow">The journal</span><h2>Notes on style, culture &amp; craft</h2><div className="editorial-grid"><article><b>01</b><h3>How to style Ankara for a modern occasion</h3><Link href="/journal">Read our styling journal →</Link></article><article><b>02</b><h3>The living language of Adire</h3><Link href="/journal">Discover the story →</Link></article><article><b>03</b><h3>Your guide to finding the perfect fit</h3><Link href="/size-guide">View size guide →</Link></article></div></section>
 
-    <section className="newsletter"><div><span className="eyebrow">Inside Afro</span><h2>Join the circle.</h2><p>Private previews, styling notes and new collection announcements.</p></div><form onSubmit={async (event) => { event.preventDefault(); const form = event.currentTarget; const email = String(new FormData(form).get("email") || ""); const response = await fetch("/api/newsletter", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email }) }); const result = await response.json() as { message?: string; error?: string }; setNotice(result.message || result.error || "Please try again."); if (response.ok) form.reset(); }}><label><span className="sr-only">Email address</span><input name="email" type="email" required placeholder="Email address"/></label><button>Join us →</button></form></section>
+    <section className="newsletter"><div><span className="eyebrow">Inside Afro</span><h2>Join the circle.</h2><p>Private previews, styling notes and new collection announcements.</p></div><form onSubmit={async (event) => { event.preventDefault(); const form = event.currentTarget; const fields = new FormData(form); const email = String(fields.get("email") || ""); const response = await fetch("/api/newsletter", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, turnstileToken: fields.get("cf-turnstile-response") }) }); const result = await response.json() as { message?: string; error?: string }; setNotice(result.message || result.error || "Please try again."); if (response.ok) form.reset(); }}><label><span className="sr-only">Email address</span><input name="email" type="email" required placeholder="Email address"/></label><Turnstile action="newsletter"/><button>Join us →</button></form></section>
 
     <section className="bag-summary" id="bag">
       <div><span className="eyebrow">Your selection</span><h2>{count ? `${count} piece${count > 1 ? "s" : ""} reserved` : "Your bag is waiting"}</h2><p>{count ? items.map((item) => item.name).join(" · ") : "Explore limited-edition pieces made to be remembered."}</p></div>

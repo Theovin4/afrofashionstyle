@@ -1,14 +1,17 @@
 import { createPendingOrder, type CheckoutRequest } from "../../../lib/orders";
 import { createAdminSupabase } from "../../../lib/supabase";
+import { enforceRateLimit, payloadError, readLimitedJson } from "../../../lib/security";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  const limited = await enforceRateLimit(request, "flutterwave-checkout", 10, 15 * 60);
+  if (limited) return limited;
   const secretKey = process.env.FLUTTERWAVE_SECRET_KEY;
   if (!secretKey) return Response.json({ error: "Flutterwave API checkout is not configured" }, { status: 503 });
   try {
-    const input = await request.json() as CheckoutRequest;
+    const input = await readLimitedJson<CheckoutRequest>(request, 32_768);
     const { order } = await createPendingOrder(input, "flutterwave", {
       clientIp: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim(),
       userAgent: request.headers.get("user-agent") || undefined,
@@ -45,6 +48,7 @@ export async function POST(request: Request) {
     await createAdminSupabase().from("orders").update({ provider_order_id: order.order_number }).eq("id", order.id);
     return Response.json({ checkoutUrl: result.data.link, orderNumber: order.order_number });
   } catch (error) {
+    if (error instanceof SyntaxError || (error instanceof Error && error.message === "PAYLOAD_TOO_LARGE")) return payloadError(error);
     return Response.json({ error: error instanceof Error ? error.message : "Flutterwave checkout failed" }, { status: 400 });
   }
 }

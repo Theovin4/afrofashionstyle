@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { NextRequest } from "next/server";
+import { enforceRateLimit, payloadError, readLimitedJson } from "../../../lib/security";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,6 +49,8 @@ function compact<T extends Record<string, unknown>>(value: T) {
 }
 
 export async function POST(request: NextRequest) {
+  const limited = await enforceRateLimit(request, "meta-event", 120, 60);
+  if (limited) return limited;
   const requestOrigin = request.headers.get("origin");
   if (requestOrigin && requestOrigin !== request.nextUrl.origin) {
     return Response.json({ error: "Invalid origin" }, { status: 403 });
@@ -58,7 +61,8 @@ export async function POST(request: NextRequest) {
     return Response.json({ error: "Conversions API is not configured" }, { status: 503 });
   }
 
-  const body = (await request.json()) as MetaEventRequest;
+  let body: MetaEventRequest;
+  try { body = await readLimitedJson(request, 16_384); } catch (error) { return payloadError(error); }
   if (body.consent !== true || !body.eventName || !ALLOWED_EVENTS.has(body.eventName) || !body.eventId || !/^[A-Za-z0-9:_-]{8,160}$/.test(body.eventId)) {
     return Response.json({ error: "Invalid event" }, { status: 400 });
   }

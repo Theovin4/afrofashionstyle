@@ -1,7 +1,11 @@
 import { createAdminSupabase } from "../../../lib/supabase";
+import { enforceRateLimit, payloadError, readLimitedJson } from "../../../lib/security";
 
 export async function POST(request: Request) {
-  const input = await request.json() as { code?: string; currency?: string; subtotal?: number };
+  const limited = await enforceRateLimit(request, "discount", 20, 15 * 60);
+  if (limited) return limited;
+  let input: { code?: string; currency?: string; subtotal?: number };
+  try { input = await readLimitedJson(request, 8_192); } catch (error) { return payloadError(error); }
   const code = input.code?.trim().toUpperCase();
   const subtotal = Number(input.subtotal);
   if (!code || !["USD", "GBP"].includes(input.currency || "") || !Number.isFinite(subtotal)) return Response.json({ error: "Enter a valid discount code" }, { status: 400 });

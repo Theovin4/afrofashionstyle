@@ -2,13 +2,16 @@ import { randomUUID } from "node:crypto";
 import { createPendingOrder, type CheckoutRequest } from "../../../lib/orders";
 import { getPayPalAccessToken, paypalBaseUrl } from "../../../lib/paypal";
 import { createAdminSupabase } from "../../../lib/supabase";
+import { enforceRateLimit, payloadError, readLimitedJson } from "../../../lib/security";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  const limited = await enforceRateLimit(request, "paypal-checkout", 10, 15 * 60);
+  if (limited) return limited;
   try {
-    const input = await request.json() as CheckoutRequest;
+    const input = await readLimitedJson<CheckoutRequest>(request, 32_768);
     const { order } = await createPendingOrder(input, "paypal", {
       clientIp: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim(),
       userAgent: request.headers.get("user-agent") || undefined,
@@ -53,6 +56,7 @@ export async function POST(request: Request) {
     await createAdminSupabase().from("orders").update({ provider_order_id: result.id }).eq("id", order.id);
     return Response.json({ orderId: result.id, orderNumber: order.order_number, status: result.status, approveUrl });
   } catch (error) {
+    if (error instanceof SyntaxError || (error instanceof Error && error.message === "PAYLOAD_TOO_LARGE")) return payloadError(error);
     console.error("PayPal create-order processing failed", { message: error instanceof Error ? error.message : "Unknown error" });
     return Response.json({ error: error instanceof Error ? error.message : "PayPal order service is unavailable" }, { status: 400 });
   }

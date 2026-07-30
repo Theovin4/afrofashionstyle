@@ -1,7 +1,11 @@
 import { createAdminSupabase } from "../../lib/supabase";
+import { enforceRateLimit, payloadError, readLimitedJson } from "../../lib/security";
 
 export async function POST(request: Request) {
-  const input = await request.json() as { email?: string; name?: string; currency?: string; items?: string[]; subtotal?: number; consent?: boolean };
+  const limited = await enforceRateLimit(request, "cart-recovery", 10, 60 * 60);
+  if (limited) return limited;
+  let input: { email?: string; name?: string; currency?: string; items?: string[]; subtotal?: number; consent?: boolean };
+  try { input = await readLimitedJson(request, 16_384); } catch (error) { return payloadError(error); }
   if (!input.consent || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email || "") || !["USD", "GBP"].includes(input.currency || "") || !Array.isArray(input.items) || !input.items.length) {
     return Response.json({ skipped: true });
   }

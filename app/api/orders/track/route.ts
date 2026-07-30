@@ -1,9 +1,13 @@
 import { createAdminSupabase } from "../../../lib/supabase";
+import { enforceRateLimit, payloadError, readLimitedJson } from "../../../lib/security";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const body = await request.json() as { orderNumber?: string; email?: string };
+  const limited = await enforceRateLimit(request, "order-track", 10, 15 * 60);
+  if (limited) return limited;
+  let body: { orderNumber?: string; email?: string };
+  try { body = await readLimitedJson(request, 8_192); } catch (error) { return payloadError(error); }
   const orderNumber = String(body.orderNumber || "").trim().toUpperCase();
   const email = String(body.email || "").trim().toLowerCase();
   if (!/^AF-\d{4}-[A-Z0-9]{8}$/.test(orderNumber) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
