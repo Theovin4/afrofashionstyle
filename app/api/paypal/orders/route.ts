@@ -9,7 +9,11 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
   try {
     const input = await request.json() as CheckoutRequest;
-    const { order } = await createPendingOrder(input, "paypal");
+    const { order } = await createPendingOrder(input, "paypal", {
+      clientIp: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim(),
+      userAgent: request.headers.get("user-agent") || undefined,
+      sourceUrl: `${new URL(request.url).origin}/checkout`,
+    });
     const accessToken = await getPayPalAccessToken();
     const origin = new URL(request.url).origin;
     const response = await fetch(`${paypalBaseUrl()}/v2/checkout/orders`, {

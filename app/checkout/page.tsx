@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { trackMetaWithUser } from "../components/meta-pixel";
+import { attributionData, hasMarketingConsent, trackMetaWithUser } from "../components/meta-pixel";
 
 type Product = { id: string; name: string; category: string; price_usd: number; price_gbp: number; stock: number };
 type Customer = { email: string; phone: string; firstName: string; lastName: string; address: string; city: string; zip: string; country: "US" | "GB" };
@@ -57,7 +57,10 @@ function CheckoutContent() {
       const endpoint = gateway === "PayPal" ? "/api/paypal/orders" : "/api/flutterwave/checkout";
       const response = await fetch(endpoint, {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ items: itemIds, sizes, currency, customer, discountCode: discountCode || undefined }),
+        body: JSON.stringify({
+          items: itemIds, sizes, currency, customer, discountCode: discountCode || undefined,
+          meta: { consent: hasMarketingConsent(), ...attributionData() },
+        }),
       });
       const result = await response.json() as { approveUrl?: string; checkoutUrl?: string; error?: string };
       const destination = result.approveUrl || result.checkoutUrl;
@@ -87,7 +90,14 @@ function CheckoutContent() {
           };
           setCustomer(details);
           if (fields.get("cartReminder") === "yes") void fetch("/api/cart-recovery", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: details.email, name: `${details.firstName} ${details.lastName}`, currency, items: itemIds, subtotal: total, consent: true }) });
-          trackMetaWithUser("AddPaymentInfo", { value: total, currency, payment_method: gateway, content_ids: itemIds }, details);
+          trackMetaWithUser("AddPaymentInfo", {
+            value: grandTotal, currency, payment_method: gateway, content_ids: itemIds,
+            content_type: "product",
+            contents: itemIds.map((id) => {
+              const product = products.find((item) => item.id === id);
+              return { id, quantity: 1, item_price: Number(currency === "GBP" ? product?.price_gbp || 0 : product?.price_usd || 0) };
+            }),
+          }, { ...details, zip: details.zip });
           setStep(2);
         }}>
           <h2>Delivery details</h2>

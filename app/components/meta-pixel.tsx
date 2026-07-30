@@ -2,7 +2,7 @@
 
 import Script from "next/script";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 
 declare global {
   interface Window {
@@ -12,6 +12,25 @@ declare global {
 }
 
 export const META_PIXEL_ID = "4611600329085591";
+const consentKey = "afro-fashionstyle-marketing-consent";
+const consentEvent = "afro:marketing-consent";
+const externalIdCookie = "af_meta_external_id";
+
+type MetaEventName = "PageView" | "ViewContent" | "Search" | "AddToCart" | "InitiateCheckout" | "Contact" | "Lead" | "AddPaymentInfo";
+type MetaUserData = {
+  email?: string; phone?: string; firstName?: string; lastName?: string; city?: string;
+  state?: string; zip?: string; country?: string; externalId?: string; fbp?: string; fbc?: string;
+};
+export type VerifiedPurchaseEvent = {
+  eventId: string;
+  customData: Record<string, unknown>;
+};
+
+function developmentLog(eventName: string, eventId: string, channel: "browser" | "server") {
+  if (process.env.NODE_ENV === "development") {
+    console.debug("[Meta event]", { eventName, eventId, channel });
+  }
+}
 
 function readCookies() {
   return Object.fromEntries(document.cookie.split("; ").filter(Boolean).map((item) => {
@@ -20,7 +39,12 @@ function readCookies() {
   }));
 }
 
-function attributionData() {
+export function hasMarketingConsent() {
+  return typeof window !== "undefined" && localStorage.getItem(consentKey) === "granted";
+}
+
+export function attributionData(): MetaUserData {
+  if (typeof window === "undefined" || !hasMarketingConsent()) return {};
   const cookies = readCookies();
   const fbclid = new URLSearchParams(window.location.search).get("fbclid")?.trim();
   if (fbclid && /^[A-Za-z0-9_.-]{8,500}$/.test(fbclid)) {
@@ -30,67 +54,122 @@ function attributionData() {
       document.cookie = `_fbc=${encodeURIComponent(cookies._fbc)}; Max-Age=7776000; Path=/; SameSite=Lax; Secure`;
     }
   }
-  return { fbp: cookies._fbp, fbc: cookies._fbc };
+  if (!cookies[externalIdCookie]) {
+    cookies[externalIdCookie] = crypto.randomUUID();
+    document.cookie = `${externalIdCookie}=${encodeURIComponent(cookies[externalIdCookie])}; Max-Age=31536000; Path=/; SameSite=Lax; Secure`;
+  }
+  return { fbp: cookies._fbp, fbc: cookies._fbc, externalId: cookies[externalIdCookie] };
 }
 
-export function trackMeta(event: string, parameters?: Record<string, unknown>) {
-  if (typeof window === "undefined") return;
-  const eventId = crypto.randomUUID();
-  window.fbq?.("track", event, parameters, { eventID: eventId });
-  const attribution = attributionData();
-  void fetch("/api/meta/events", {
+function browserEvent(eventName: string, parameters: Record<string, unknown> | undefined, eventId: string) {
+  let attempts = 0;
+  const dispatch = () => {
+    if (window.fbq) {
+      window.fbq("track", eventName, parameters, { eventID: eventId });
+      developmentLog(eventName, eventId, "browser");
+      return;
+    }
+    attempts += 1;
+    if (attempts < 20) window.setTimeout(dispatch, 100);
+  };
+  dispatch();
+}
+
+async function serverEvent(eventName: MetaEventName, parameters: Record<string, unknown> | undefined, eventId: string, userData: MetaUserData) {
+  developmentLog(eventName, eventId, "server");
+  await fetch("/api/meta/events", {
     method: "POST",
     headers: { "content-type": "application/json" },
     keepalive: true,
     body: JSON.stringify({
-      eventName: event,
+      consent: true,
+      eventName,
       eventId,
       sourceUrl: window.location.href,
       customData: parameters,
-      userData: attribution,
+      userData: { ...userData, ...attributionData() },
     }),
-  }).catch(() => undefined);
+  });
 }
 
-export function trackMetaWithUser(
-  event: string,
-  parameters: Record<string, unknown>,
-  userData: Record<string, string>,
-) {
-  if (typeof window === "undefined") return;
+export function trackMeta(eventName: MetaEventName, parameters?: Record<string, unknown>, userData: MetaUserData = {}) {
+  if (typeof window === "undefined" || !hasMarketingConsent()) return;
   const eventId = crypto.randomUUID();
-  window.fbq?.("track", event, parameters, { eventID: eventId });
-  const attribution = attributionData();
-  void fetch("/api/meta/events", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    keepalive: true,
-    body: JSON.stringify({
-      eventName: event,
-      eventId,
-      sourceUrl: window.location.href,
-      customData: parameters,
-      userData: { ...userData, ...attribution },
-    }),
-  }).catch(() => undefined);
+  browserEvent(eventName, parameters, eventId);
+  void serverEvent(eventName, parameters, eventId, userData).catch(() => undefined);
+  return eventId;
+}
+
+export function trackMetaWithUser(eventName: MetaEventName, parameters: Record<string, unknown>, userData: MetaUserData) {
+  return trackMeta(eventName, parameters, userData);
+}
+
+export function trackVerifiedPurchase(event: VerifiedPurchaseEvent) {
+  if (typeof window === "undefined" || !hasMarketingConsent()) return;
+  const storageKey = `meta-purchase:${event.eventId}`;
+  if (sessionStorage.getItem(storageKey)) return;
+  sessionStorage.setItem(storageKey, "1");
+  browserEvent("Purchase", event.customData, event.eventId);
 }
 
 function RouteTracker() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const lastRoute = useRef("");
 
   useEffect(() => {
+    if (!hasMarketingConsent()) return;
     attributionData();
+    const routeKey = `${pathname}?${searchParams.toString()}`;
+    if (lastRoute.current === routeKey) return;
+    lastRoute.current = routeKey;
     const timer = window.setTimeout(() => trackMeta("PageView"), 500);
     return () => window.clearTimeout(timer);
   }, [pathname, searchParams]);
 
+  useEffect(() => {
+    function handleContact(event: MouseEvent) {
+      if (!hasMarketingConsent()) return;
+      const link = (event.target as Element | null)?.closest<HTMLAnchorElement>("a[href]");
+      if (!link) return;
+      const href = link.getAttribute("href") || "";
+      const method = href.startsWith("mailto:") ? "email"
+        : href.startsWith("tel:") ? "phone"
+          : /(?:wa\.me|whatsapp\.com)/i.test(href) ? "whatsapp"
+            : link.dataset.metaContact || "";
+      if (method) trackMeta("Contact", { contact_method: method });
+    }
+    document.addEventListener("click", handleContact);
+    return () => document.removeEventListener("click", handleContact);
+  }, []);
+
   return null;
 }
 
+function ConsentBanner({ onDecision }: { onDecision: (granted: boolean) => void }) {
+  return <div className="consent-banner" role="dialog" aria-label="Cookie choices" aria-live="polite">
+    <div><b>Your privacy choices</b><p>With your permission, we use Meta marketing cookies to measure shopping activity and improve relevant advertising. Necessary store functions work without Meta marketing cookies.</p><a href="/privacy">Read our privacy policy</a></div>
+    <div><button onClick={() => onDecision(false)}>Decline optional</button><button className="accept" onClick={() => onDecision(true)}>Allow marketing</button></div>
+  </div>;
+}
+
 export function MetaPixel() {
-  return (
-    <>
+  const [consent, setConsent] = useState<"unknown" | "granted" | "denied">("unknown");
+
+  useEffect(() => {
+    const saved = localStorage.getItem(consentKey);
+    queueMicrotask(() => setConsent(saved === "granted" ? "granted" : saved === "denied" ? "denied" : "unknown"));
+  }, []);
+
+  function decide(granted: boolean) {
+    const value = granted ? "granted" : "denied";
+    localStorage.setItem(consentKey, value);
+    setConsent(value);
+    window.dispatchEvent(new CustomEvent(consentEvent, { detail: value }));
+  }
+
+  return <>
+    {consent === "granted" && <>
       <Script id="meta-pixel" strategy="afterInteractive">
         {`
           !function(f,b,e,v,n,t,s)
@@ -104,34 +183,8 @@ export function MetaPixel() {
           fbq('init', '${META_PIXEL_ID}');
         `}
       </Script>
-      <Suspense fallback={null}>
-        <RouteTracker />
-      </Suspense>
-      <noscript>
-        {/* eslint-disable-next-line @next/next/no-img-element -- Meta requires a 1x1 noscript tracking pixel. */}
-        <img
-          height="1"
-          width="1"
-          style={{ display: "none" }}
-          src={`https://www.facebook.com/tr?id=${META_PIXEL_ID}&ev=PageView&noscript=1`}
-          alt=""
-        />
-      </noscript>
-    </>
-  );
-}
-
-export function PurchaseTracker({ value, currency }: { value: number; currency: string }) {
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      trackMeta("Purchase", {
-        value,
-        currency,
-        content_type: "product",
-        content_ids: ["afro-fashionstyle-order"],
-      });
-    }, 300);
-    return () => window.clearTimeout(timer);
-  }, [currency, value]);
-  return null;
+      <Suspense fallback={null}><RouteTracker/></Suspense>
+    </>}
+    {consent === "unknown" && <ConsentBanner onDecision={decide}/>}
+  </>;
 }

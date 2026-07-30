@@ -9,7 +9,11 @@ export async function POST(request: Request) {
   if (!secretKey) return Response.json({ error: "Flutterwave API checkout is not configured" }, { status: 503 });
   try {
     const input = await request.json() as CheckoutRequest;
-    const { order } = await createPendingOrder(input, "flutterwave");
+    const { order } = await createPendingOrder(input, "flutterwave", {
+      clientIp: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim(),
+      userAgent: request.headers.get("user-agent") || undefined,
+      sourceUrl: `${new URL(request.url).origin}/checkout`,
+    });
     const origin = new URL(request.url).origin;
     const response = await fetch("https://api.flutterwave.com/v3/payments", {
       method: "POST",

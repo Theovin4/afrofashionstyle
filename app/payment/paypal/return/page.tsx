@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { BrandStatusLogo } from "../../../components/brand-status-logo";
+import { trackVerifiedPurchase, type VerifiedPurchaseEvent } from "../../../components/meta-pixel";
 
 function PayPalReturnContent() {
   const searchParams = useSearchParams();
@@ -17,8 +18,9 @@ function PayPalReturnContent() {
     const controller = new AbortController();
     void fetch(`/api/paypal/orders/${orderId}/capture`, { method: "POST", signal: controller.signal })
       .then(async (response) => {
-        const result = await response.json() as { completed?: boolean; orderNumber?: string; value?: string; currency?: string; error?: string };
+        const result = await response.json() as { completed?: boolean; orderNumber?: string; value?: string; currency?: string; metaPurchase?: VerifiedPurchaseEvent | null; error?: string };
         if (!response.ok || !result.completed) throw new Error(result.error || "Payment could not be captured.");
+        if (result.metaPurchase) trackVerifiedPurchase(result.metaPurchase);
         router.replace(`/payment/success?gateway=PayPal&verified=1&order=${encodeURIComponent(result.orderNumber || orderId)}&total=${encodeURIComponent(result.value || "")}&currency=${encodeURIComponent(result.currency || "USD")}`);
       })
       .catch((reason) => {

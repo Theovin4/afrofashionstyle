@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { PremiumHeader } from "../components/premium-header";
 import { ProductCard } from "../components/product-card";
+import { trackMeta } from "../components/meta-pixel";
 import type { Product } from "../lib/commerce-types";
 
 export default function ShopPage() {
@@ -33,7 +34,7 @@ export default function ShopPage() {
     <PremiumHeader/>
     <section className="shop-hero"><span className="eyebrow">The complete collection</span><h1>Designed to be<br/><em>remembered.</em></h1><p>Limited-edition Nigerian-inspired womenswear, made for entrances, celebrations and every story in between.</p></section>
     <section className="shop-shell">
-      <aside className="shop-filters"><label>Search<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search dresses, Adire…"/></label>
+      <aside className="shop-filters"><form onSubmit={(event) => { event.preventDefault(); const search = query.trim(); if (search) trackMeta("Search", { search_string: search }); }}><label>Search<input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search dresses, Adire…"/></label><button className="search-submit">Search</button></form>
         <fieldset><legend>Collection</legend>{categories.map((item) => <button className={category === item ? "active" : ""} key={item} onClick={() => setCategory(item)}>{item}</button>)}</fieldset>
       </aside>
       <div className="shop-results">

@@ -2,8 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Product } from "../../lib/commerce-types";
 import { useCart } from "../../components/cart-provider";
 import { ProductCard } from "../../components/product-card";
@@ -19,12 +18,20 @@ export function ProductDetail({ product, related }: { product: Product; related:
   const [wishlisted, setWishlisted] = useState(false);
   const image = product.product_images?.[0];
   const price = Number(currency === "GBP" ? product.price_gbp : product.price_usd);
+  const trackedProduct = useRef("");
 
   useEffect(() => {
     const key = "afro-recently-viewed";
     const current = JSON.parse(localStorage.getItem(key) || "[]") as string[];
     localStorage.setItem(key, JSON.stringify([product.slug, ...current.filter((slug) => slug !== product.slug)].slice(0, 8)));
-    trackMeta("ViewContent", { content_name: product.name, content_category: product.category, content_ids: [product.id], content_type: "product", value: price, currency });
+    if (trackedProduct.current !== product.id) {
+      trackedProduct.current = product.id;
+      trackMeta("ViewContent", {
+        content_ids: [product.id], content_name: product.name, content_category: product.category,
+        content_type: "product", contents: [{ id: product.id, quantity: 1, item_price: price }],
+        value: price, currency,
+      });
+    }
   }, [product.id, product.slug, product.name, product.category, price, currency]);
 
   function add() {

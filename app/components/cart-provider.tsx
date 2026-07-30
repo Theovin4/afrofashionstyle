@@ -57,6 +57,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     });
     trackMeta("AddToCart", {
       content_name: product.name, content_category: product.category, content_ids: [product.id],
+      contents: [{ id: product.id, quantity: 1, item_price: Number(currency === "GBP" ? product.price_gbp : product.price_usd) }],
       content_type: "product", value: Number(currency === "GBP" ? product.price_gbp : product.price_usd), currency,
     });
     setOpen(true);
@@ -98,7 +99,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           </article>)}
         </div>
         <footer><div><span>Subtotal</span><strong>{currency} {total.toFixed(2)}</strong></div><p>Tracked delivery and taxes calculated at checkout.</p>
-          <Link className={`button primary ${!items.length ? "disabled" : ""}`} href={items.length ? `/checkout?items=${items.flatMap((item) => Array(item.quantity).fill(item.id)).join(",")}&sizes=${items.flatMap((item) => Array(item.quantity).fill(encodeURIComponent(item.size))).join(",")}&currency=${currency}` : "#"} onClick={() => setOpen(false)}>Secure checkout</Link>
+          <Link className={`button primary ${!items.length ? "disabled" : ""}`} href={items.length ? `/checkout?items=${items.flatMap((item) => Array(item.quantity).fill(item.id)).join(",")}&sizes=${items.flatMap((item) => Array(item.quantity).fill(encodeURIComponent(item.size))).join(",")}&currency=${currency}` : "#"} onClick={() => {
+            if (items.length) trackMeta("InitiateCheckout", {
+              content_ids: items.map((item) => item.id),
+              contents: items.map((item) => ({ id: item.id, quantity: item.quantity, item_price: Number(currency === "GBP" ? item.price_gbp : item.price_usd) })),
+              content_type: "product", num_items: count, value: total, currency,
+            });
+            setOpen(false);
+          }}>Secure checkout</Link>
           <button onClick={() => setOpen(false)}>Continue shopping</button>
         </footer>
       </aside>

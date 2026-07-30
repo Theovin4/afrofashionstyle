@@ -1,6 +1,6 @@
 import { completeOrder } from "./orders";
 import { createAdminSupabase } from "./supabase";
-import { sendVerifiedPurchase } from "./meta-purchase";
+import { sendVerifiedPurchaseForOrder } from "./meta-purchase";
 
 type VerifiedTransaction = {
   id: number | string;
@@ -33,10 +33,7 @@ export async function verifyAndCompleteFlutterwave(transactionId: string | numbe
   }
   if (order.payment_status !== "paid") {
     await completeOrder(order.id, String(transaction.id));
-    await sendVerifiedPurchase({
-      eventId: `flutterwave:${transaction.id}`, orderNumber: order.order_number, email: order.customer_email,
-      value: Number(order.total), currency: order.currency, gateway: "Flutterwave",
-    });
   }
-  return { orderNumber: order.order_number, currency: order.currency, total: Number(order.total), orderId: order.id, transaction };
+  const metaPurchase = await sendVerifiedPurchaseForOrder(order.id, "Flutterwave");
+  return { orderNumber: order.order_number, currency: order.currency, total: Number(order.total), orderId: order.id, transaction, metaPurchase };
 }

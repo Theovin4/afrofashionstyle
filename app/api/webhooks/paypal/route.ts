@@ -1,12 +1,10 @@
-import { createHash } from "node:crypto";
 import { getPayPalAccessToken, paypalBaseUrl } from "../../../lib/paypal";
 import { completeOrder } from "../../../lib/orders";
 import { createAdminSupabase } from "../../../lib/supabase";
+import { sendVerifiedPurchaseForOrder } from "../../../lib/meta-purchase";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const META_PIXEL_ID = "4611600329085591";
 
 type PayPalEvent = {
   id?: string;
@@ -23,11 +21,6 @@ type PayPalEvent = {
     supplementary_data?: { related_ids?: { order_id?: string } };
   };
 };
-
-function hash(value?: string) {
-  const normalized = value?.trim().toLowerCase();
-  return normalized ? createHash("sha256").update(normalized).digest("hex") : undefined;
-}
 
 async function verifyPayPalWebhook(
   request: Request,
@@ -55,51 +48,6 @@ async function verifyPayPalWebhook(
   if (!response.ok) return false;
   const result = (await response.json()) as { verification_status?: string };
   return result.verification_status === "SUCCESS";
-}
-
-async function sendMetaPurchase(event: PayPalEvent) {
-  const token = process.env.META_CAPI_ACCESS_TOKEN;
-  const resource = event.resource;
-  if (!token || !event.id || !resource?.amount?.value || !resource.amount.currency_code) return;
-
-  const response = await fetch(
-    `https://graph.facebook.com/${process.env.META_GRAPH_API_VERSION || "v22.0"}/${META_PIXEL_ID}/events?access_token=${encodeURIComponent(token)}`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        data: [{
-          event_name: "Purchase",
-          event_time: event.create_time
-            ? Math.floor(new Date(event.create_time).getTime() / 1000)
-            : Math.floor(Date.now() / 1000),
-          event_id: `paypal:${event.id}`,
-          event_source_url: "https://afro-fashionstyle.vercel.app/payment/success",
-          action_source: "website",
-          user_data: {
-            em: hash(resource.payer?.email_address),
-            fn: hash(resource.payer?.name?.given_name),
-            ln: hash(resource.payer?.name?.surname),
-          },
-          custom_data: {
-            value: Number(resource.amount.value),
-            currency: resource.amount.currency_code,
-            content_type: "product",
-            content_ids: [
-              resource.supplementary_data?.related_ids?.order_id ||
-              resource.id ||
-              event.id,
-            ],
-            payment_method: "PayPal",
-          },
-        }],
-      }),
-      cache: "no-store",
-    },
-  );
-  if (!response.ok) {
-    console.error("Meta rejected a verified PayPal purchase", { status: response.status });
-  }
 }
 
 export async function POST(request: Request) {
@@ -142,7 +90,7 @@ export async function POST(request: Request) {
       await supabase.from("payment_events").insert({
         gateway: "paypal", external_event_id: event.id, event_type: event.event_type, order_id: order.id, payload: event,
       });
-      await sendMetaPurchase(event);
+      await sendVerifiedPurchaseForOrder(order.id, "PayPal");
     }
 
     return Response.json({ received: true });

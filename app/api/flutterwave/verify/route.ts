@@ -10,7 +10,13 @@ export async function POST(request: Request) {
   }
   try {
     const verified = await verifyAndCompleteFlutterwave(body.transactionId);
-    return Response.json({ verified: true, orderNumber: verified.orderNumber, currency: verified.currency, total: verified.total });
+    return Response.json({
+      verified: true,
+      orderNumber: verified.orderNumber,
+      currency: verified.currency,
+      total: verified.total,
+      metaPurchase: verified.metaPurchase.browserEvent,
+    });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "Payment verification failed" }, { status: 409 });
   }

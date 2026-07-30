@@ -19,6 +19,12 @@ export type CheckoutRequest = {
   customer: CheckoutCustomer;
   sizes?: string[];
   discountCode?: string;
+  meta?: {
+    consent?: boolean;
+    fbp?: string;
+    fbc?: string;
+    externalId?: string;
+  };
 };
 const taxRate = 0.05;
 
@@ -32,7 +38,11 @@ function validCustomer(customer: CheckoutCustomer) {
     (customer.country === "US" || customer.country === "GB");
 }
 
-export async function createPendingOrder(input: CheckoutRequest, gateway: "paypal" | "flutterwave") {
+export async function createPendingOrder(
+  input: CheckoutRequest,
+  gateway: "paypal" | "flutterwave",
+  requestContext?: { clientIp?: string; userAgent?: string; sourceUrl?: string },
+) {
   if (!Array.isArray(input.items) || input.items.length < 1 || input.items.length > 20 || !["USD", "GBP"].includes(input.currency) || !validCustomer(input.customer)) {
     throw new Error("Invalid checkout details");
   }
@@ -89,6 +99,9 @@ export async function createPendingOrder(input: CheckoutRequest, gateway: "paypa
   const taxTotal = Math.round(taxableTotal * taxRate * 100) / 100;
   const total = taxableTotal + taxTotal + shippingTotal;
   const orderNumber = `AF-${new Date().getUTCFullYear()}-${randomUUID().slice(0, 8).toUpperCase()}`;
+  const fbp = input.meta?.fbp && /^fb\.1\.\d{10,16}\.[A-Za-z0-9._-]{4,200}$/.test(input.meta.fbp) ? input.meta.fbp : undefined;
+  const fbc = input.meta?.fbc && /^fb\.1\.\d{10,16}\.[A-Za-z0-9._-]{8,500}$/.test(input.meta.fbc) ? input.meta.fbc : undefined;
+  const externalId = input.meta?.externalId && /^[A-Za-z0-9-]{8,80}$/.test(input.meta.externalId) ? input.meta.externalId : undefined;
   const { data: order, error: orderError } = await supabase.from("orders").insert({
     order_number: orderNumber,
     customer_email: input.customer.email.trim().toLowerCase(),
@@ -108,6 +121,15 @@ export async function createPendingOrder(input: CheckoutRequest, gateway: "paypa
     tax_total: taxTotal,
     total,
     payment_gateway: gateway,
+    meta_attribution: input.meta?.consent === true ? {
+      consent: true,
+      fbp,
+      fbc,
+      external_id: externalId,
+      client_ip_address: requestContext?.clientIp,
+      client_user_agent: requestContext?.userAgent,
+      event_source_url: requestContext?.sourceUrl,
+    } : { consent: false },
   }).select("id,order_number,currency,total,tracking_token").single();
   if (orderError || !order) throw new Error("Unable to create order");
   await supabase.from("abandoned_carts").update({ status: "converted", updated_at: new Date().toISOString() }).eq("email", input.customer.email.trim().toLowerCase()).eq("status", "pending");
