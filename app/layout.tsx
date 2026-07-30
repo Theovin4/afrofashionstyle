@@ -6,13 +6,14 @@ import { ContactActions } from "./components/contact-actions";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://afrofashionstyle.com"),
+  metadataBase: new URL("https://afro-fashionstyle.vercel.app"),
   title: { default: "Afro.Fashionstyle | Premium Nigerian Fashion for Women", template: "%s | Afro.Fashionstyle" },
   description: "Shop premium Afrocentric womenswear, Ankara dresses, Adire gowns and Nigerian occasion wear. Designed for women in the USA and UK.",
   keywords: ["African fashion for women USA", "Nigerian dresses online", "Ankara dresses USA", "Adire fashion", "African occasion wear UK"],
   openGraph: { title: "Afro.Fashionstyle — Wear Your Story", description: "Modern silhouettes. Nigerian soul. Premium womenswear for the USA and UK.", images: ["/og.png"], type: "website" },
   twitter: { card: "summary_large_image", title: "Afro.Fashionstyle — Wear Your Story", images: ["/og.png"] },
   icons: { icon: "/afro-fashionstyle-logo.png" },
+  alternates: { canonical: "/" },
   verification: { google: "XBN4mZJ1-rjDyXZAObhygPIIh2bftEzrW_O_W4CehNo" },
   other: { "google-adsense-account": "ca-pub-7864399969744116" },
 };

@@ -1,6 +1,10 @@
 import { PremiumHeader } from "../components/premium-header";
 
-export const metadata = { title: "Shipping & Returns", description: "USA and UK shipping, delivery and returns information for Afro.Fashionstyle." };
+export const metadata = {
+  title: "Shipping & Returns",
+  description: "USA and UK shipping, delivery and made-to-order purchase policy for Afro.Fashionstyle.",
+  alternates: { canonical: "/shipping-returns" },
+};
 
 export default function ShippingReturnsPage() {
   return <main><PremiumHeader/><article className="policy-page"><span className="eyebrow">Customer care</span><h1>Shipping &amp; returns</h1>

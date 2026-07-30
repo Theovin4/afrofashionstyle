@@ -7,6 +7,7 @@ import { createPublicSupabase } from "../lib/supabase";
 export const metadata: Metadata = {
   title: "Nigerian Fashion Journal",
   description: "Daily styling guides and cultural notes on Ankara, Adire and contemporary Nigerian womenswear.",
+  alternates: { canonical: "/journal" },
 };
 export const dynamic = "force-dynamic";
 

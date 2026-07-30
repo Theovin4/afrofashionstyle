@@ -1,6 +1,10 @@
 import { PremiumHeader } from "../components/premium-header";
 
-export const metadata = { title: "Women's Size & Measurement Guide" };
+export const metadata = {
+  title: "Women's Size & Measurement Guide",
+  description: "Use the Afro.Fashionstyle USA and UK women’s size guide and learn how to send measurements for made-to-order Nigerian outfits.",
+  alternates: { canonical: "/size-guide" },
+};
 
 export default function SizeGuidePage() {
   return <main><PremiumHeader/><article className="policy-page"><span className="eyebrow">Made for you</span><h1>Size &amp; measurement guide</h1><p>Because every outfit is made on request and cannot be returned or refunded, please confirm your size carefully before ordering.</p>

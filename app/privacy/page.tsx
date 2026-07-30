@@ -1,6 +1,6 @@
 import { PremiumHeader } from "../components/premium-header";
 
-export const metadata = { title: "Privacy Policy" };
+export const metadata = { title: "Privacy Policy", alternates: { canonical: "/privacy" } };
 
 export default function PrivacyPage() {
   return <main><PremiumHeader/><article className="policy-page"><span className="eyebrow">Legal</span><h1>Privacy policy</h1><p>Last updated July 26, 2026.</p>

@@ -1,6 +1,10 @@
 import { PremiumHeader } from "../components/premium-header";
 
-export const metadata = { title: "African Textile Garment Care" };
+export const metadata = {
+  title: "African Textile Garment Care",
+  description: "Learn how to care for Ankara, Adire, Aso Oke and other Nigerian textile garments so their colour and structure last.",
+  alternates: { canonical: "/garment-care" },
+};
 
 export default function GarmentCarePage() {
   return <main><PremiumHeader/><article className="policy-page"><span className="eyebrow">Protect the story</span><h1>Garment care</h1>
