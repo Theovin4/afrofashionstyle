@@ -13,7 +13,11 @@ async function getPost(slug: string) {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const post = await getPost((await params).slug);
-  return post ? { title: post.seo_title || post.title, description: post.seo_description || post.excerpt, alternates: { canonical: `/journal/${post.slug}` } } : {};
+  return post ? {
+    title: { absolute: post.seo_title || `${post.title} | Afro.Fashionstyle` },
+    description: post.seo_description || post.excerpt,
+    alternates: { canonical: `/journal/${post.slug}` },
+  } : {};
 }
 
 export default async function JournalPostPage({ params }: { params: Promise<{ slug: string }> }) {
