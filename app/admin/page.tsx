@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 
-type Product = { id: string; name: string; category: string; price: number; stock: number; status: string; imageUrl?: string };
+type Product = { id: string; name: string; category: string; price: number; stock: number; status: string; imageUrl?: string; description?: string };
 type ApiProduct = { id: string; name: string; category: string; price_usd: number; stock: number; status: string; product_images?: Array<{ secure_url: string }> };
 type Order = { id: string; order_number: string; customer_name: string; customer_email: string; currency: string; total: number; payment_status: string; fulfillment_status: string; tracking_number?: string; tracking_url?: string; carrier?: string; created_at: string; order_items?: Array<{ product_name: string; quantity: number; selected_size?: string }> };
 type Operations = {
@@ -13,6 +13,7 @@ type Operations = {
   reviews: Array<{ id: string; customer_name: string; rating: number; title: string; body: string; status: string; products?: { name?: string } }>;
   settings: Record<string, Record<string, string>>;
 };
+type BlogPost = { id: string; title: string; slug: string; excerpt: string; content: string; status: string; published_at?: string };
 
 export default function AdminPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -20,16 +21,75 @@ export default function AdminPage() {
   const [notice, setNotice] = useState("");
   const [publishing, setPublishing] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [posts, setPosts] = useState<BlogPost[]>([]);
   const [operations, setOperations] = useState<Operations>({ discounts: [], shipping: [], reviews: [], settings: {} });
 
   useEffect(() => {
-    fetch("/api/products").then((response) => response.ok ? response.json() : Promise.reject())
+    fetch("/api/admin/products").then((response) => response.ok ? response.json() : Promise.reject())
       .then(({ products: rows }: { products: ApiProduct[] }) => setProducts(rows.map((product) => ({
         id: product.id, name: product.name, category: product.category, price: Number(product.price_usd),
         stock: product.stock, status: product.status === "active" ? "Active" : product.status,
         imageUrl: product.product_images?.[0]?.secure_url,
       })))).catch(() => setNotice("Products could not be loaded."));
   }, []);
+
+  async function loadPosts() {
+    const response = await fetch("/api/admin/blog");
+    if (response.ok) setPosts(((await response.json()) as { posts: BlogPost[] }).posts);
+  }
+  useEffect(() => { queueMicrotask(() => void loadPosts()); }, []);
+
+  async function productAction(product: Product, action: "edit" | "duplicate" | "delete") {
+    if (action === "delete" && !window.confirm(`Delete ${product.name}? This cannot be undone.`)) return;
+    let response: Response;
+    if (action === "edit") {
+      const name = window.prompt("Product name", product.name);
+      if (!name) return;
+      const priceUsd = Number(window.prompt("Price in USD", String(product.price)));
+      const stock = Number(window.prompt("Inventory", String(product.stock)));
+      const category = window.prompt("Collection", product.category) || product.category;
+      response = await fetch(`/api/admin/products/${product.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, priceUsd, stock, category, status: product.status.toLowerCase() }) });
+    } else {
+      response = await fetch(`/api/admin/products/${product.id}`, { method: action === "delete" ? "DELETE" : "POST" });
+    }
+    const result = await response.json() as { product?: ApiProduct; error?: string };
+    if (!response.ok) { setNotice(result.error || `Product could not be ${action}d.`); return; }
+    if (action === "delete") setProducts((all) => all.filter((item) => item.id !== product.id));
+    else if (action === "duplicate" && result.product) setProducts((all) => [{ id: result.product!.id, name: result.product!.name, category: result.product!.category, price: Number(result.product!.price_usd), stock: result.product!.stock, status: "draft" }, ...all]);
+    else if (result.product) setProducts((all) => all.map((item) => item.id === product.id ? { ...item, name: result.product!.name, category: result.product!.category, price: Number(result.product!.price_usd), stock: result.product!.stock, status: result.product!.status } : item));
+    setNotice(`Product ${action === "edit" ? "updated" : action === "duplicate" ? "duplicated as a draft" : "deleted"}.`);
+  }
+
+  async function createPost() {
+    const title = window.prompt("Journal title");
+    if (!title) return;
+    const response = await fetch("/api/admin/blog", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title, status: "draft" }) });
+    const result = await response.json() as { post?: BlogPost; error?: string };
+    if (response.ok && result.post) { setPosts((all) => [result.post!, ...all]); setNotice("Journal draft created with optimized starter copy."); }
+    else setNotice(result.error || "Post could not be created.");
+  }
+
+  async function blogAction(post: BlogPost, action: "edit" | "duplicate" | "delete" | "publish") {
+    let response: Response;
+    if (action === "delete") {
+      if (!window.confirm(`Delete “${post.title}”?`)) return;
+      response = await fetch(`/api/admin/blog?id=${post.id}`, { method: "DELETE" });
+    } else if (action === "duplicate") {
+      response = await fetch("/api/admin/blog", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "duplicate", id: post.id }) });
+    } else {
+      const title = action === "edit" ? window.prompt("Post title", post.title) : post.title;
+      if (!title) return;
+      const excerpt = action === "edit" ? window.prompt("Short summary", post.excerpt) || post.excerpt : post.excerpt;
+      const content = action === "edit" ? window.prompt("Article content", post.content) || post.content : post.content;
+      response = await fetch("/api/admin/blog", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...post, title, excerpt, content, status: action === "publish" ? "published" : post.status }) });
+    }
+    const result = await response.json() as { post?: BlogPost; error?: string };
+    if (!response.ok) { setNotice(result.error || "Journal update failed."); return; }
+    if (action === "delete") setPosts((all) => all.filter((item) => item.id !== post.id));
+    else if (action === "duplicate" && result.post) setPosts((all) => [result.post!, ...all]);
+    else if (result.post) setPosts((all) => all.map((item) => item.id === post.id ? result.post! : item));
+    setNotice("Journal updated.");
+  }
 
   async function loadOperations() {
     const response = await fetch("/api/admin/operations");
@@ -88,7 +148,7 @@ export default function AdminPage() {
         <Image src="/afro-fashionstyle-logo.png" alt="Afro.Fashionstyle" width={220} height={220} priority/>
       </Link>
       <p>Commerce studio</p>
-      <nav><a className="active" href="#overview">⌂ Overview</a><a href="#products">◇ Products</a><a href="#orders">▤ Orders</a><a href="#customers">♙ Customers</a><a href="#analytics">⌁ Analytics</a></nav>
+      <nav><a className="active" href="#overview">⌂ Overview</a><a href="#products">◇ Products</a><a href="#orders">▤ Orders</a><a href="#journal">✦ Journal</a><a href="#customers">♙ Customers</a><a href="#analytics">⌁ Analytics</a></nav>
       <div className="admin-owner"><span>AF</span><small>Administrator<br/>Owner access</small><form action="/api/admin/logout" method="post"><button>Sign out</button></form></div>
     </aside>
     <section className="admin-main">
@@ -111,13 +171,17 @@ export default function AdminPage() {
       <article className="table-card" id="products">
         <div className="table-head"><div><h2>Products</h2><p>{products.length} active styles · Inventory synced</p></div><button onClick={() => setShowForm(true)}>Add new</button></div>
         <div className="product-table">
-          <div className="table-row labels"><span>Product</span><span>Category</span><span>Price</span><span>Inventory</span><span>Status</span></div>
+          <div className="table-row labels"><span>Product</span><span>Category</span><span>Price</span><span>Inventory</span><span>Status / actions</span></div>
           {products.map((product) => <div className="table-row" key={product.id}>
             <span>{product.imageUrl ? <Image src={product.imageUrl} alt="" width={42} height={52}/> : <i>{product.name.slice(0, 1)}</i>}<b>{product.name}</b></span>
             <span>{product.category}</span><span>${product.price}</span><span>{product.stock} units</span>
-            <span><em className={product.stock < 10 ? "warn" : ""}>{product.status}</em></span>
+            <span className="row-actions"><em className={product.stock < 10 ? "warn" : ""}>{product.status}</em><button onClick={() => void productAction(product, "edit")}>Edit</button><button onClick={() => void productAction(product, "duplicate")}>Duplicate</button><button className="danger" onClick={() => void productAction(product, "delete")}>Delete</button></span>
           </div>)}
         </div>
+      </article>
+      <article className="table-card" id="journal">
+        <div className="table-head"><div><h2>Journal publishing</h2><p>{posts.length} posts · One Nigerian fashion article publishes automatically every day</p></div><button onClick={() => void createPost()}>New draft</button></div>
+        <div className="compact-list">{posts.map((post) => <div className="blog-admin-row" key={post.id}><span><b>{post.title}</b><small>{post.status}{post.published_at ? ` · ${new Date(post.published_at).toLocaleDateString()}` : ""}</small></span><span><button onClick={() => void blogAction(post, "edit")}>Edit</button><button onClick={() => void blogAction(post, "duplicate")}>Duplicate</button>{post.status !== "published" && <button onClick={() => void blogAction(post, "publish")}>Publish</button>}<button className="danger" onClick={() => void blogAction(post, "delete")}>Delete</button></span></div>)}{!posts.length && <p>The daily publisher will create the first journal entry automatically.</p>}</div>
       </article>
       <article className="table-card orders-card" id="orders">
         <div className="table-head"><div><h2>Orders</h2><p>{orders.length} recent orders · Payments verified by webhook</p></div></div>
@@ -136,7 +200,10 @@ export default function AdminPage() {
         <div className="table-head"><div><h2>Customers</h2><p>Customer history generated from verified orders.</p></div></div>
         <div className="compact-list">{Array.from(new Map(orders.map((order) => [order.customer_email, order])).values()).map((customer) => <p key={customer.customer_email}><b>{customer.customer_name}</b><span>{customer.customer_email} · {orders.filter((order) => order.customer_email === customer.customer_email).length} order(s)</span></p>)}{!orders.length && <p>No customer orders yet.</p>}</div>
       </article>
-      <section className="operations-grid" id="analytics">
+      <section id="analytics">
+        <article className="table-card export-card"><div><span className="eyebrow">Business intelligence</span><h2>Download your analysis workbook</h2><p>Orders, products, inventory and subscribers are exported into separate Excel sheets.</p></div><a className="button primary" href="/api/admin/export">Download Excel workbook</a></article>
+      </section>
+      <section className="operations-grid">
         <article className="table-card"><div className="table-head"><div><h2>Discount codes</h2><p>Create conversion-focused promotions.</p></div></div>
           <form className="inline-admin-form" onSubmit={(event) => { event.preventDefault(); const fields = new FormData(event.currentTarget); void operation({ action: "create_discount", code: fields.get("code"), kind: fields.get("kind"), value: fields.get("value"), currency: fields.get("currency"), minimumOrder: fields.get("minimumOrder") }); event.currentTarget.reset(); }}>
             <input name="code" required placeholder="WELCOME10"/><select name="kind"><option value="percent">Percent</option><option value="fixed">Fixed amount</option></select><input name="value" type="number" min="1" required placeholder="10"/><select name="currency"><option value="">Any currency</option><option>USD</option><option>GBP</option></select><input name="minimumOrder" type="number" min="0" placeholder="Minimum order"/><button>Create code</button>
@@ -167,10 +234,10 @@ export default function AdminPage() {
         <label>Product name<input name="name" required placeholder="e.g. Nia Adire Wrap Dress"/></label>
         <label>Collection<select name="category"><option>Ankara Edit</option><option>Adire Collection</option><option>Occasion Wear</option><option>Everyday Luxury</option></select></label>
         <div className="form-split"><label>Price (USD)<input name="priceUsd" type="number" min="1" step="0.01" required/></label><label>Price (GBP)<input value="Calculated automatically from USD" readOnly/></label></div>
-        <label>Inventory<input name="stock" type="number" min="0" required/></label>
+        <label>Inventory<input name="stock" type="number" min="0" defaultValue="500"/><small>Defaults to 500 units.</small></label>
         <label>Available sizes<input name="sizes" defaultValue="US 2, US 4, US 6, US 8, US 10, US 12, US 14, US 16, US 18"/></label>
         <label>Product imagery<input name="image" type="file" accept="image/jpeg,image/png,image/webp,image/avif" required/></label>
-        <label>Description<textarea name="description" rows={4} placeholder="Tell the story of the piece…"/></label>
+        <label>Description<textarea name="description" rows={4} placeholder="Optional — premium SEO description is generated automatically"/></label>
         <button className="publish" disabled={publishing}>{publishing ? "Publishing…" : "Publish product"}</button>
       </form>
     </div>}
