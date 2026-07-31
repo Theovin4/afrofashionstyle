@@ -26,13 +26,24 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     currenciesAccepted: "USD, GBP", paymentAccepted: "PayPal, Flutterwave",
   };
   return <html lang="en"><body>
+    <Script id="google-consent-default" strategy="beforeInteractive">{`
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('consent', 'default', {
+        ad_storage: 'denied',
+        analytics_storage: 'denied',
+        ad_user_data: 'denied',
+        ad_personalization: 'denied',
+        wait_for_update: 500
+      });
+    `}</Script>
     <CartProvider>{children}</CartProvider>
     <ContactActions/>
     <MetaPixel/>
     <Script src="https://www.googletagmanager.com/gtag/js?id=G-BQGC29GHP8" strategy="afterInteractive"/>
     <Script id="google-analytics" strategy="afterInteractive">{`
       window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
+      window.gtag = window.gtag || function(){dataLayer.push(arguments);};
       gtag('js', new Date());
       gtag('config', 'G-BQGC29GHP8');
     `}</Script>

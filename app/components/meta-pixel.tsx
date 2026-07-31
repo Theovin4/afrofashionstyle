@@ -8,6 +8,7 @@ declare global {
   interface Window {
     fbq?: (...args: unknown[]) => void;
     _fbq?: (...args: unknown[]) => void;
+    gtag?: (...args: unknown[]) => void;
   }
 }
 
@@ -148,7 +149,7 @@ function RouteTracker() {
 
 function ConsentBanner({ onDecision }: { onDecision: (granted: boolean) => void }) {
   return <div className="consent-banner" role="dialog" aria-label="Cookie choices" aria-live="polite">
-    <div><b>Your privacy choices</b><p>With your permission, we use Meta marketing cookies to measure shopping activity and improve relevant advertising. Necessary store functions work without Meta marketing cookies.</p><a href="/privacy">Read our privacy policy</a></div>
+    <div><b>Your privacy choices</b><p>With your permission, we use Google and Meta analytics and advertising cookies to measure shopping activity and improve relevant advertising. Necessary store functions work without optional marketing cookies.</p><a href="/privacy">Read our privacy policy</a></div>
     <div><button onClick={() => onDecision(false)}>Decline optional</button><button className="accept" onClick={() => onDecision(true)}>Allow marketing</button></div>
   </div>;
 }
@@ -158,12 +159,25 @@ export function MetaPixel() {
 
   useEffect(() => {
     const saved = localStorage.getItem(consentKey);
+    const granted = saved === "granted";
+    window.gtag?.("consent", "update", {
+      ad_storage: granted ? "granted" : "denied",
+      analytics_storage: granted ? "granted" : "denied",
+      ad_user_data: granted ? "granted" : "denied",
+      ad_personalization: granted ? "granted" : "denied",
+    });
     queueMicrotask(() => setConsent(saved === "granted" ? "granted" : saved === "denied" ? "denied" : "unknown"));
   }, []);
 
   function decide(granted: boolean) {
     const value = granted ? "granted" : "denied";
     localStorage.setItem(consentKey, value);
+    window.gtag?.("consent", "update", {
+      ad_storage: value,
+      analytics_storage: value,
+      ad_user_data: value,
+      ad_personalization: value,
+    });
     setConsent(value);
     window.dispatchEvent(new CustomEvent(consentEvent, { detail: value }));
   }
