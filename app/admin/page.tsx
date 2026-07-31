@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -15,6 +15,9 @@ type Operations = {
 };
 type BlogPost = { id: string; title: string; slug: string; excerpt: string; content: string; status: string; published_at?: string };
 
+const isoDate = (date: Date) => date.toISOString().slice(0, 10);
+const defaultReportStart = () => { const date = new Date(); date.setDate(date.getDate() - 29); return isoDate(date); };
+
 export default function AdminPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -23,6 +26,41 @@ export default function AdminPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [operations, setOperations] = useState<Operations>({ discounts: [], shipping: [], reviews: [], settings: {} });
+  const [productQuery, setProductQuery] = useState("");
+  const [productCategory, setProductCategory] = useState("all");
+  const [productStatus, setProductStatus] = useState("all");
+  const [orderQuery, setOrderQuery] = useState("");
+  const [orderPayment, setOrderPayment] = useState("all");
+  const [orderFulfillment, setOrderFulfillment] = useState("all");
+  const [orderCurrency, setOrderCurrency] = useState("all");
+  const [orderStart, setOrderStart] = useState("");
+  const [orderEnd, setOrderEnd] = useState("");
+  const [postQuery, setPostQuery] = useState("");
+  const [postStatus, setPostStatus] = useState("all");
+  const [reportStart, setReportStart] = useState(defaultReportStart);
+  const [reportEnd, setReportEnd] = useState(() => isoDate(new Date()));
+
+  const filteredProducts = useMemo(() => products.filter((product) => {
+    const query = productQuery.trim().toLowerCase();
+    return (!query || `${product.name} ${product.category}`.toLowerCase().includes(query))
+      && (productCategory === "all" || product.category === productCategory)
+      && (productStatus === "all" || product.status.toLowerCase() === productStatus);
+  }), [products, productQuery, productCategory, productStatus]);
+  const filteredOrders = useMemo(() => orders.filter((order) => {
+    const query = orderQuery.trim().toLowerCase();
+    const orderDate = order.created_at.slice(0, 10);
+    return (!query || `${order.order_number} ${order.customer_name} ${order.customer_email}`.toLowerCase().includes(query))
+      && (orderPayment === "all" || order.payment_status === orderPayment)
+      && (orderFulfillment === "all" || order.fulfillment_status === orderFulfillment)
+      && (orderCurrency === "all" || order.currency === orderCurrency)
+      && (!orderStart || orderDate >= orderStart)
+      && (!orderEnd || orderDate <= orderEnd);
+  }), [orders, orderQuery, orderPayment, orderFulfillment, orderCurrency, orderStart, orderEnd]);
+  const filteredPosts = useMemo(() => posts.filter((post) => {
+    const query = postQuery.trim().toLowerCase();
+    return (!query || `${post.title} ${post.excerpt}`.toLowerCase().includes(query))
+      && (postStatus === "all" || post.status === postStatus);
+  }), [posts, postQuery, postStatus]);
 
   useEffect(() => {
     fetch("/api/admin/products").then((response) => response.ok ? response.json() : Promise.reject())
@@ -170,9 +208,10 @@ export default function AdminPage() {
       </div>
       <article className="table-card" id="products">
         <div className="table-head"><div><h2>Products</h2><p>{products.length} active styles · Inventory synced</p></div><button onClick={() => setShowForm(true)}>Add new</button></div>
+        <div className="admin-filters"><input type="search" value={productQuery} onChange={(event) => setProductQuery(event.target.value)} placeholder="Search products"/><select value={productCategory} onChange={(event) => setProductCategory(event.target.value)}><option value="all">All collections</option>{Array.from(new Set(products.map((product) => product.category))).map((category) => <option key={category}>{category}</option>)}</select><select value={productStatus} onChange={(event) => setProductStatus(event.target.value)}><option value="all">All statuses</option><option value="active">Active</option><option value="draft">Draft</option></select><small>{filteredProducts.length} shown</small></div>
         <div className="product-table">
           <div className="table-row labels"><span>Product</span><span>Category</span><span>Price</span><span>Inventory</span><span>Status / actions</span></div>
-          {products.map((product) => <div className="table-row" key={product.id}>
+          {filteredProducts.map((product) => <div className="table-row" key={product.id}>
             <span>{product.imageUrl ? <Image src={product.imageUrl} alt="" width={42} height={52}/> : <i>{product.name.slice(0, 1)}</i>}<b>{product.name}</b></span>
             <span>{product.category}</span><span>${product.price}</span><span>{product.stock} units</span>
             <span className="row-actions"><em className={product.stock < 10 ? "warn" : ""}>{product.status}</em><button onClick={() => void productAction(product, "edit")}>Edit</button><button onClick={() => void productAction(product, "duplicate")}>Duplicate</button><button className="danger" onClick={() => void productAction(product, "delete")}>Delete</button></span>
@@ -181,19 +220,21 @@ export default function AdminPage() {
       </article>
       <article className="table-card" id="journal">
         <div className="table-head"><div><h2>Journal publishing</h2><p>{posts.length} posts · One Nigerian fashion article publishes automatically every day</p></div><button onClick={() => void createPost()}>New draft</button></div>
-        <div className="compact-list">{posts.map((post) => <div className="blog-admin-row" key={post.id}><span><b>{post.title}</b><small>{post.status}{post.published_at ? ` · ${new Date(post.published_at).toLocaleDateString()}` : ""}</small></span><span><button onClick={() => void blogAction(post, "edit")}>Edit</button><button onClick={() => void blogAction(post, "duplicate")}>Duplicate</button>{post.status !== "published" && <button onClick={() => void blogAction(post, "publish")}>Publish</button>}<button className="danger" onClick={() => void blogAction(post, "delete")}>Delete</button></span></div>)}{!posts.length && <p>The daily publisher will create the first journal entry automatically.</p>}</div>
+        <div className="admin-filters"><input type="search" value={postQuery} onChange={(event) => setPostQuery(event.target.value)} placeholder="Search journal"/><select value={postStatus} onChange={(event) => setPostStatus(event.target.value)}><option value="all">All statuses</option><option value="draft">Draft</option><option value="published">Published</option></select><small>{filteredPosts.length} shown</small></div>
+        <div className="compact-list">{filteredPosts.map((post) => <div className="blog-admin-row" key={post.id}><span><b>{post.title}</b><small>{post.status}{post.published_at ? ` · ${new Date(post.published_at).toLocaleDateString()}` : ""}</small></span><span><button onClick={() => void blogAction(post, "edit")}>Edit</button><button onClick={() => void blogAction(post, "duplicate")}>Duplicate</button>{post.status !== "published" && <button onClick={() => void blogAction(post, "publish")}>Publish</button>}<button className="danger" onClick={() => void blogAction(post, "delete")}>Delete</button></span></div>)}{!filteredPosts.length && <p>No journal posts match these filters.</p>}</div>
       </article>
       <article className="table-card orders-card" id="orders">
         <div className="table-head"><div><h2>Orders</h2><p>{orders.length} recent orders · Payments verified by webhook</p></div></div>
+        <div className="admin-filters order-filters"><input type="search" value={orderQuery} onChange={(event) => setOrderQuery(event.target.value)} placeholder="Order, customer or email"/><select value={orderPayment} onChange={(event) => setOrderPayment(event.target.value)}><option value="all">Any payment</option><option value="paid">Paid</option><option value="pending">Pending</option><option value="failed">Failed</option><option value="refunded">Refunded</option></select><select value={orderFulfillment} onChange={(event) => setOrderFulfillment(event.target.value)}><option value="all">Any fulfilment</option><option value="unfulfilled">Unfulfilled</option><option value="processing">Processing</option><option value="shipped">Shipped</option><option value="delivered">Delivered</option><option value="cancelled">Cancelled</option></select><select value={orderCurrency} onChange={(event) => setOrderCurrency(event.target.value)}><option value="all">USD and GBP</option><option>USD</option><option>GBP</option></select><label>From<input type="date" value={orderStart} onChange={(event) => setOrderStart(event.target.value)}/></label><label>To<input type="date" value={orderEnd} onChange={(event) => setOrderEnd(event.target.value)}/></label><button onClick={() => { setOrderQuery(""); setOrderPayment("all"); setOrderFulfillment("all"); setOrderCurrency("all"); setOrderStart(""); setOrderEnd(""); }}>Clear</button><small>{filteredOrders.length} shown</small></div>
         <div className="orders-table">
           <div className="order-row labels"><span>Order</span><span>Customer</span><span>Total</span><span>Payment</span><span>Fulfilment</span></div>
-          {orders.map((order) => <div className="order-row" key={order.id}>
+          {filteredOrders.map((order) => <div className="order-row" key={order.id}>
             <span><b>{order.order_number}</b><small>{new Date(order.created_at).toLocaleDateString()}</small></span>
             <span><b>{order.customer_name}</b><small>{order.order_items?.map((item) => `${item.product_name} × ${item.quantity}${item.selected_size ? ` (${item.selected_size})` : ""}`).join(", ")}</small></span>
             <span>{order.currency} {Number(order.total).toFixed(2)}</span><span><em>{order.payment_status}</em></span>
             <span><select value={order.fulfillment_status} onChange={(event) => void updateOrder(order, event.target.value)}><option value="unfulfilled">Unfulfilled</option><option value="processing">Processing</option><option value="shipped">Shipped</option><option value="delivered">Delivered</option><option value="cancelled">Cancelled</option></select>{order.tracking_number && <small>{order.carrier}: {order.tracking_number}</small>}</span>
           </div>)}
-          {!orders.length && <p className="admin-empty">New paid orders will appear here automatically.</p>}
+          {!filteredOrders.length && <p className="admin-empty">No orders match these filters.</p>}
         </div>
       </article>
       <article className="table-card" id="customers">
@@ -201,7 +242,7 @@ export default function AdminPage() {
         <div className="compact-list">{Array.from(new Map(orders.map((order) => [order.customer_email, order])).values()).map((customer) => <p key={customer.customer_email}><b>{customer.customer_name}</b><span>{customer.customer_email} · {orders.filter((order) => order.customer_email === customer.customer_email).length} order(s)</span></p>)}{!orders.length && <p>No customer orders yet.</p>}</div>
       </article>
       <section id="analytics">
-        <article className="table-card export-card"><div><span className="eyebrow">Business intelligence</span><h2>Download your analysis workbook</h2><p>Orders, products, inventory and subscribers are exported into separate Excel sheets.</p></div><a className="button primary" href="/api/admin/export">Download Excel workbook</a></article>
+        <article className="table-card export-card"><div><span className="eyebrow">Business analysis</span><h2>Download a clear performance report</h2><p>Select a period for a PDF with sales breakdowns, graphs, plain-language insights and practical next steps. USD and GBP stay separate.</p><div className="report-period"><label>From<input type="date" value={reportStart} max={reportEnd} onChange={(event) => setReportStart(event.target.value)}/></label><label>To<input type="date" value={reportEnd} min={reportStart} max={isoDate(new Date())} onChange={(event) => setReportEnd(event.target.value)}/></label></div></div><div className="export-actions"><a className="button primary" href={`/api/admin/report/pdf?start=${reportStart}&end=${reportEnd}`}>Download PDF analysis</a><a className="button secondary" href="/api/admin/export">Download Excel workbook</a></div></article>
       </section>
       <section className="operations-grid">
         <article className="table-card"><div className="table-head"><div><h2>Discount codes</h2><p>Create conversion-focused promotions.</p></div></div>
