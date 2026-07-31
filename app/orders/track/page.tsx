@@ -1,9 +1,8 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
+import { BrandLogo } from "../../components/brand-logo";
 
 type TrackedOrder = {
   order_number: string; payment_status: string; fulfillment_status: string;
@@ -34,7 +33,7 @@ function Tracker() {
   const stages = ["processing", "shipped", "delivered"];
   const activeStage = order ? Math.max(0, stages.indexOf(order.fulfillment_status)) : 0;
   return <main className="status-page"><div className="tracking-card">
-    <Link href="/"><Image src="/afro-fashionstyle-logo.png" width={150} height={70} alt="Afro.Fashionstyle"/></Link>
+    <BrandLogo variant="commerce"/>
     <span className="eyebrow">Order care</span><h1>Track your order.</h1>
     {!order ? <form onSubmit={findOrder}>
       <label>Order number<input value={orderNumber} onChange={(event) => setOrderNumber(event.target.value)} required placeholder="AF-2026-AB12CD34"/></label>

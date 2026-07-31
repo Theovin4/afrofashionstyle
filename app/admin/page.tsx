@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { BrandLogo } from "../components/brand-logo";
 
 type Product = { id: string; name: string; category: string; price: number; stock: number; status: string; imageUrl?: string; description?: string };
 type ApiProduct = { id: string; name: string; category: string; price_usd: number; stock: number; status: string; product_images?: Array<{ secure_url: string }> };
@@ -182,9 +183,7 @@ export default function AdminPage() {
 
   return <main className="admin-shell">
     <aside className="admin-nav">
-      <Link href="/" className="admin-logo" aria-label="Afro.Fashionstyle storefront">
-        <Image src="/afro-fashionstyle-logo.png" alt="Afro.Fashionstyle" width={220} height={220} priority/>
-      </Link>
+      <BrandLogo variant="admin" priority/>
       <p>Commerce studio</p>
       <nav><a className="active" href="#overview">⌂ Overview</a><a href="#products">◇ Products</a><a href="#orders">▤ Orders</a><a href="#journal">✦ Journal</a><a href="#customers">♙ Customers</a><a href="#analytics">⌁ Analytics</a></nav>
       <div className="admin-owner"><span>AF</span><small>Administrator<br/>Owner access</small><form action="/api/admin/logout" method="post"><button>Sign out</button></form></div>
@@ -192,9 +191,7 @@ export default function AdminPage() {
     <section className="admin-main">
       <header>
         <div className="admin-heading">
-          <span className="admin-heading-logo" aria-hidden="true">
-            <Image src="/afro-fashionstyle-logo.png" alt="" width={140} height={140}/>
-          </span>
+          <BrandLogo variant="adminMark" href={null} decorative/>
           <div><span className="eyebrow">Commerce overview</span><h1>Welcome, Admin.</h1></div>
         </div>
         <div><Link href="/">View store ↗</Link><button onClick={() => setShowForm(true)}>＋ Add product</button></div>

@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { attributionData, hasMarketingConsent, trackMetaWithUser } from "../components/meta-pixel";
+import { BrandLogo } from "../components/brand-logo";
 
 type Product = { id: string; name: string; category: string; price_usd: number; price_gbp: number; stock: number };
 type Customer = { email: string; phone: string; firstName: string; lastName: string; address: string; city: string; zip: string; country: "US" | "GB" };
@@ -75,7 +75,7 @@ function CheckoutContent() {
   if (!itemIds.length) return <main className="status-page"><div className="status-card"><h1>Your bag is empty.</h1><Link className="button primary" href="/#shop">Shop the collection</Link></div></main>;
 
   return <main className="commerce-page">
-    <header className="commerce-header"><Link href="/"><Image src="/afro-fashionstyle-logo.png" width={145} height={68} alt="Afro.Fashionstyle"/></Link><span>Secure checkout · Step {step} of 2</span></header>
+    <header className="commerce-header"><BrandLogo variant="commerce"/><span>Secure checkout · Step {step} of 2</span></header>
     <div className="checkout-layout">
       <section className="checkout-form">
         <Link href="/" className="back-link">← Continue shopping</Link><span className="eyebrow">Express checkout</span><h1>Complete your order.</h1>
