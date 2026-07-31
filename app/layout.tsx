@@ -3,6 +3,7 @@ import Script from "next/script";
 import { CartProvider } from "./components/cart-provider";
 import { MetaPixel } from "./components/meta-pixel";
 import { ContactActions } from "./components/contact-actions";
+import { ThemeControl } from "./components/theme-control";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -25,7 +26,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     description: "Premium Nigerian-inspired womenswear serving customers in the USA and UK.",
     currenciesAccepted: "USD, GBP", paymentAccepted: "PayPal, Flutterwave",
   };
-  return <html lang="en"><body>
+  return <html lang="en" suppressHydrationWarning><body>
+    <Script id="theme-bootstrap" strategy="beforeInteractive">{`
+      try {
+        var admin = location.pathname.indexOf('/admin') === 0;
+        var saved = localStorage.getItem('afro-theme');
+        var theme = admin ? 'dark' : (saved === 'dark' || saved === 'light' ? saved : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+      } catch (_) {}
+    `}</Script>
     <Script id="google-consent-default" strategy="beforeInteractive">{`
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
@@ -39,6 +49,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     `}</Script>
     <CartProvider>{children}</CartProvider>
     <ContactActions/>
+    <ThemeControl/>
     <MetaPixel/>
     <Script src="https://www.googletagmanager.com/gtag/js?id=G-BQGC29GHP8" strategy="afterInteractive"/>
     <Script id="google-analytics" strategy="afterInteractive">{`
