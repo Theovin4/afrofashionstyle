@@ -29,6 +29,6 @@ export function ThemeControl() {
   }
 
   return <button className="theme-toggle" type="button" onClick={toggleTheme} aria-label="Toggle light or dark mode" title="Toggle light or dark mode">
-    <span aria-hidden="true">◐</span>
+    <span className="theme-moon" aria-hidden="true">☾</span><span className="theme-sun" aria-hidden="true">☀</span>
   </button>;
 }

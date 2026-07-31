@@ -156,6 +156,7 @@ function ConsentBanner({ onDecision }: { onDecision: (granted: boolean) => void 
 
 export function MetaPixel() {
   const [consent, setConsent] = useState<"unknown" | "granted" | "denied">("unknown");
+  const [choosing, setChoosing] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem(consentKey);
@@ -179,6 +180,7 @@ export function MetaPixel() {
       ad_personalization: value,
     });
     setConsent(value);
+    setChoosing(false);
     window.dispatchEvent(new CustomEvent(consentEvent, { detail: value }));
   }
 
@@ -199,6 +201,9 @@ export function MetaPixel() {
       </Script>
       <Suspense fallback={null}><RouteTracker/></Suspense>
     </>}
-    {consent === "unknown" && <ConsentBanner onDecision={decide}/>}
+    {(consent === "unknown" || choosing) && <ConsentBanner onDecision={decide}/>}
+    {consent !== "unknown" && !choosing && <button className="privacy-choices" type="button" onClick={() => setChoosing(true)} aria-label="Review cookie and advertising privacy choices">
+      Privacy choices
+    </button>}
   </>;
 }
