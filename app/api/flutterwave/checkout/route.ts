@@ -34,7 +34,7 @@ export async function POST(request: Request) {
         customizations: {
           title: "Afro.Fashionstyle",
           description: `Order ${order.order_number}`,
-          logo: `${origin}/afro-fashionstyle-logo.png`,
+          logo: `${origin}/afro-fashionstyle-monogram.png`,
         },
         meta: { order_id: order.id },
       }),

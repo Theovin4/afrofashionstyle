@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   keywords: ["African fashion for women USA", "Nigerian dresses online", "Ankara dresses USA", "Adire fashion", "African occasion wear UK"],
   openGraph: { title: "Afro.Fashionstyle — Wear Your Story", description: "Modern silhouettes. Nigerian soul. Premium womenswear for the USA and UK.", images: ["/og.png"], type: "website" },
   twitter: { card: "summary_large_image", title: "Afro.Fashionstyle — Wear Your Story", images: ["/og.png"] },
-  icons: { icon: "/afro-fashionstyle-logo.png" },
+  icons: { icon: "/afro-fashionstyle-monogram.png", apple: "/afro-fashionstyle-monogram.png" },
   alternates: { canonical: "/" },
   verification: { google: "XBN4mZJ1-rjDyXZAObhygPIIh2bftEzrW_O_W4CehNo" },
   other: { "google-adsense-account": "ca-pub-7864399969744116" },

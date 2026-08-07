@@ -10,7 +10,7 @@ type BrandLogoProps = {
 
 export function BrandLogo({ variant = "header", href = "/", priority = false, decorative = false }: BrandLogoProps) {
   const artwork = <span className="brand-logo-artwork">
-    <Image src="/afro-fashionstyle-logo.png" alt={decorative ? "" : "Afro.Fashionstyle"} width={1280} height={1280} priority={priority} sizes={variant === "footer" ? "180px" : variant === "adminMark" ? "82px" : "220px"}/>
+    <Image src="/afro-fashionstyle-monogram.png" alt={decorative ? "" : "Afro.Fashionstyle"} width={1280} height={1056} priority={priority} sizes={variant === "footer" ? "126px" : variant === "adminMark" ? "76px" : variant === "status" ? "172px" : "150px"}/>
   </span>;
   const className = `brand-logo brand-logo--${variant}`;
 
