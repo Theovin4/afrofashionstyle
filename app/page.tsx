@@ -9,6 +9,7 @@ import { ProductCard } from "./components/product-card";
 import { SiteFooter } from "./components/site-footer";
 import { Turnstile } from "./components/turnstile";
 import type { Product } from "./lib/commerce-types";
+import { CATEGORY_DETAILS } from "./lib/catalog";
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -27,7 +28,7 @@ export default function Home() {
     <PremiumHeader/>
     <section className="hero" id="new">
       <Image src="/campaign-hero.png" alt="Three women in modern Nigerian-inspired occasion wear" fill priority sizes="100vw"/>
-      <div className="hero-copy"><span className="eyebrow">The Heritage Collection · 2026</span><h1>Wear your<br/><em>story.</em></h1><p>Modern silhouettes. Nigerian soul. Designed for women who arrive with purpose.</p><div className="hero-ctas"><Link className="button primary" href="/shop">Shop the collection</Link><a className="text-link" href="#story">Discover our craft →</a></div></div>
+      <div className="hero-copy"><span className="eyebrow">Made on request in Lagos</span><h1>Nigerian dress,<br/><em>made yours.</em></h1><p>Dresses, two-piece sets and lace outfits made for your measurements and delivered to the USA and UK.</p><div className="hero-ctas"><Link className="button primary" href="/shop">Shop the collection</Link><a className="text-link" href="#story">How our pieces are made →</a></div></div>
       <div className="hero-note">Made in small editions<br/>in Lagos &amp; the USA</div>
     </section>
 
@@ -38,15 +39,17 @@ export default function Home() {
     </section>
 
     <section className="collection" id="shop">
-      <div className="section-heading"><div><span className="eyebrow">Curated for you</span><h2>New arrivals</h2></div><Link href="/shop">Shop all pieces →</Link></div>
+      <div className="section-heading"><div><span className="eyebrow">Recently added</span><h2>New arrivals</h2></div><Link href="/shop">Shop all pieces →</Link></div>
       <div className="product-grid">{products.slice(0, 8).map((product) => <ProductCard product={product} key={product.id}/>)}</div>
     </section>
+
+    <section className="category-directory" aria-labelledby="category-title"><div className="section-heading"><div><span className="eyebrow">Shop by design</span><h2 id="category-title">Five ways to wear Afro.</h2></div></div><div>{CATEGORY_DETAILS.map((category, index) => <Link href={`/collections/${category.slug}`} key={category.slug}><span>0{index + 1}</span><strong>{category.name}</strong><small>Explore the collection →</small></Link>)}</div></section>
 
     <section className="story" id="story"><div className="story-pattern"><span>ÀṢÀ</span></div><div className="story-copy"><span className="eyebrow">Rooted in culture. Made for now.</span><h2>A celebration<br/>of becoming.</h2><p>Afro.Fashionstyle brings Nigerian textile traditions into a modern wardrobe. Every piece is made to hold attention, carry meaning, and move beautifully through your world.</p><a className="button light" href="#journal">Read our story</a></div></section>
 
     <section className="editorial" id="journal"><span className="eyebrow">The journal</span><h2>Notes on style, culture &amp; craft</h2><div className="editorial-grid"><article><b>01</b><h3>How to style Ankara for a modern occasion</h3><Link href="/journal">Read our styling journal →</Link></article><article><b>02</b><h3>The living language of Adire</h3><Link href="/journal">Discover the story →</Link></article><article><b>03</b><h3>Your guide to finding the perfect fit</h3><Link href="/size-guide">View size guide →</Link></article></div></section>
 
-    <section className="newsletter"><div><span className="eyebrow">Inside Afro</span><h2>Join the circle.</h2><p>Private previews, styling notes and new collection announcements.</p></div><form onSubmit={async (event) => { event.preventDefault(); const form = event.currentTarget; const fields = new FormData(form); const email = String(fields.get("email") || ""); const response = await fetch("/api/newsletter", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, turnstileToken: fields.get("cf-turnstile-response") }) }); const result = await response.json() as { message?: string; error?: string }; setNotice(result.message || result.error || "Please try again."); if (response.ok) form.reset(); }}><label><span className="sr-only">Email address</span><input name="email" type="email" required placeholder="Email address"/></label><Turnstile action="newsletter"/><button>Join us →</button></form></section>
+    <section className="newsletter"><div><span className="eyebrow">Inside Afro</span><h2>Join the circle.</h2><p>Private previews, practical styling notes and first access to new pieces.</p></div><form onSubmit={async (event) => { event.preventDefault(); const form = event.currentTarget; const fields = new FormData(form); const email = String(fields.get("email") || ""); const response = await fetch("/api/newsletter", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email, turnstileToken: fields.get("cf-turnstile-response") }) }); const result = await response.json() as { message?: string; error?: string }; setNotice(result.message || result.error || "Please try again."); if (response.ok) form.reset(); }}><div className="newsletter-fields"><label><span className="sr-only">Email address</span><input name="email" type="email" required placeholder="Email address"/></label><button>Join us →</button></div><Turnstile action="newsletter"/></form></section>
 
     <section className="bag-summary" id="bag">
       <div><span className="eyebrow">Your selection</span><h2>{count ? `${count} piece${count > 1 ? "s" : ""} reserved` : "Your bag is waiting"}</h2><p>{count ? items.map((item) => item.name).join(" · ") : "Explore limited-edition pieces made to be remembered."}</p></div>

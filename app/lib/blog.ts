@@ -52,7 +52,7 @@ export function slugify(value: string) {
 }
 
 export function productDescription(name: string, category: string) {
-  return `${name} is a premium ${category.toLowerCase()} piece by Afro.Fashionstyle, created for women who value modern silhouettes and authentic Nigerian design. Made on request in Lagos with considered finishing, it is designed for weddings, celebrations and elevated everyday dressing. Available for tracked delivery to customers in the USA and UK. Kindly forward your measurements if you are unsure of your size.`;
+  return `${name} is a made-to-order ${category.toLowerCase()} design by Afro.Fashionstyle. It is produced in Lagos for weddings, celebrations and occasion dressing, with tracked delivery available to customers in the USA and UK. Production takes 5–7 working days. If you are unsure of your size, send your bust, waist, hip and height measurements before ordering.`;
 }
 
 export async function publishDailyBlogPost() {

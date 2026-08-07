@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { createPublicSupabase } from "./lib/supabase";
+import { CATEGORY_DETAILS } from "./lib/catalog";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = "https://afro-fashionstyle.vercel.app";
@@ -18,6 +19,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   return [
     { url: baseUrl, changeFrequency: "weekly", priority: 1 },
     { url: `${baseUrl}/shop`, changeFrequency: "daily", priority: .9 },
+    ...CATEGORY_DETAILS.map((category) => ({ url: `${baseUrl}/collections/${category.slug}`, changeFrequency: "weekly" as const, priority: .85 })),
     { url: `${baseUrl}/shipping-returns`, changeFrequency: "monthly", priority: .5 },
     { url: `${baseUrl}/privacy`, changeFrequency: "yearly", priority: .3 },
     { url: `${baseUrl}/terms`, changeFrequency: "yearly", priority: .3 },

@@ -47,7 +47,7 @@ export function ProductDetail({ product, related }: { product: Product; related:
       <span>Limited edition</span>
     </div>
     <div className="product-info"><span className="eyebrow">{product.category}</span><h1>{product.name}</h1><p className="detail-price">{currency} {price.toFixed(2)}</p>
-      <p className="detail-description">{product.description || "A considered Afro.Fashionstyle silhouette, crafted to celebrate Nigerian textile heritage through a modern feminine lens."}</p>
+      <p className="detail-description">{product.description || "This Afro.Fashionstyle piece is made on request in Lagos. Production takes 5–7 working days; send your measurements before ordering if you are unsure of your size."}</p>
       <div className="size-heading"><b>Select size</b><Link href="/size-guide">Size guide</Link></div>
       <div className="size-grid">{(product.product_variants?.filter((variant) => variant.active && variant.stock > 0).map((variant) => variant.size) || sizes).map((item) => <button className={size === item ? "active" : ""} onClick={() => { setSize(item); setSizeError(false); }} key={item}>{item}</button>)}</div>
       {sizeError && <p className="size-error">Please select your size.</p>}

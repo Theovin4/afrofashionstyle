@@ -5,6 +5,7 @@ import { PremiumHeader } from "../components/premium-header";
 import { ProductCard } from "../components/product-card";
 import { trackMeta } from "../components/meta-pixel";
 import type { Product } from "../lib/commerce-types";
+import { PRODUCT_CATEGORIES } from "../lib/catalog";
 
 export default function ShopPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -19,7 +20,7 @@ export default function ShopPage() {
     return () => controller.abort();
   }, []);
 
-  const categories = useMemo(() => ["All", ...new Set(products.map((product) => product.category))], [products]);
+  const categories = ["All", ...PRODUCT_CATEGORIES];
   const visible = useMemo(() => products.filter((product) =>
     (category === "All" || product.category === category) &&
     `${product.name} ${product.category} ${product.description}`.toLowerCase().includes(query.toLowerCase())

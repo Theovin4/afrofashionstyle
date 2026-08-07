@@ -66,3 +66,31 @@ test("fbc is created only from a real fbclid", async () => {
   assert.match(pixel, /cookies\._fbc = `fb\.1\.\$\{Date\.now\(\)\}\.\$\{fbclid\}`/);
   assert.match(capi, /sourceFbclid \? `fb\.1\.\$\{Date\.now\(\)\}\.\$\{sourceFbclid\}` : undefined/);
 });
+
+test("catalog exposes only the five approved categories", async () => {
+  const [catalog, shop, admin, migration] = await Promise.all([
+    read("app/lib/catalog.ts"),
+    read("app/shop/page.tsx"),
+    read("app/admin/page.tsx"),
+    read("supabase/migrations/20260807120000_enforce_five_product_categories.sql"),
+  ]);
+  for (const category of ["Dresses", "Two piece", "Lace Outfit", "Other Luxury Designs", "Accessories"]) {
+    assert.match(catalog, new RegExp(category));
+    assert.match(migration, new RegExp(category));
+  }
+  assert.match(shop, /PRODUCT_CATEGORIES/);
+  assert.match(admin, /PRODUCT_CATEGORIES/);
+  assert.doesNotMatch(shop, /new Set\(products\.map/);
+});
+
+test("Turnstile stays secure without covering the newsletter form", async () => {
+  const [turnstile, home, css] = await Promise.all([
+    read("app/components/turnstile.tsx"),
+    read("app/page.tsx"),
+    read("app/globals.css"),
+  ]);
+  assert.match(turnstile, /data-appearance="interaction-only"/);
+  assert.match(turnstile, /data-size="flexible"/);
+  assert.match(home, /newsletter-fields/);
+  assert.match(css, /\.turnstile-slot/);
+});

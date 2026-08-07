@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { BrandLogo } from "../components/brand-logo";
+import { PRODUCT_CATEGORIES } from "../lib/catalog";
 
 type Product = { id: string; name: string; category: string; price: number; stock: number; status: string; imageUrl?: string; description?: string };
 type ApiProduct = { id: string; name: string; category: string; price_usd: number; stock: number; status: string; product_images?: Array<{ secure_url: string }> };
@@ -270,12 +271,12 @@ export default function AdminPage() {
       <form className="product-modal" action={addProduct}>
         <div><span className="eyebrow">Catalog</span><h2>Add a new product</h2><button type="button" onClick={() => setShowForm(false)}>×</button></div>
         <label>Product name<input name="name" required placeholder="e.g. Nia Adire Wrap Dress"/></label>
-        <label>Collection<select name="category"><option>Ankara Edit</option><option>Adire Collection</option><option>Occasion Wear</option><option>Everyday Luxury</option></select></label>
+        <label>Category<select name="category">{PRODUCT_CATEGORIES.map((category) => <option key={category}>{category}</option>)}</select></label>
         <div className="form-split"><label>Price (USD)<input name="priceUsd" type="number" min="1" step="0.01" required/></label><label>Price (GBP)<input value="Calculated automatically from USD" readOnly/></label></div>
         <label>Inventory<input name="stock" type="number" min="0" defaultValue="500"/><small>Defaults to 500 units.</small></label>
         <label>Available sizes<input name="sizes" defaultValue="US 2, US 4, US 6, US 8, US 10, US 12, US 14, US 16, US 18"/></label>
         <label>Product imagery<input name="image" type="file" accept="image/jpeg,image/png,image/webp,image/avif" required/></label>
-        <label>Description<textarea name="description" rows={4} placeholder="Optional — premium SEO description is generated automatically"/></label>
+        <label>Description<textarea name="description" rows={4} placeholder="Optional — include fabric, fit and suitable occasions. A factual product summary is added if left blank."/></label>
         <button className="publish" disabled={publishing}>{publishing ? "Publishing…" : "Publish product"}</button>
       </form>
     </div>}

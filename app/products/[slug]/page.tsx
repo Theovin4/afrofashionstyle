@@ -15,7 +15,7 @@ async function getProduct(slug: string) {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const product = await getProduct((await params).slug);
   if (!product) return {};
-  const description = product.description || `Shop ${product.name}, premium Nigerian-inspired womenswear by Afro.Fashionstyle. USA and UK delivery.`;
+  const description = product.description || `Shop ${product.name}, made-to-order Nigerian womenswear by Afro.Fashionstyle with tracked USA and UK delivery.`;
   return {
     title: product.name, description,
     alternates: { canonical: `/products/${product.slug}` },
@@ -33,9 +33,10 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     "@context": "https://schema.org", "@type": "Product", name: product.name, description: product.description,
     image: product.product_images?.map((image) => image.secure_url), sku: product.id, brand: { "@type": "Brand", name: "Afro.Fashionstyle" },
     offers: [
-      { "@type": "Offer", priceCurrency: "USD", price: Number(product.price_usd).toFixed(2), availability: product.stock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock", url: `https://afro-fashionstyle.vercel.app/products/${product.slug}` },
-      { "@type": "Offer", priceCurrency: "GBP", price: Number(product.price_gbp).toFixed(2), availability: product.stock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock" },
+      { "@type": "Offer", priceCurrency: "USD", price: Number(product.price_usd).toFixed(2), availability: product.stock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock", url: `https://afro-fashionstyle.vercel.app/products/${product.slug}`, shippingDetails: { "@type": "OfferShippingDetails", shippingDestination: { "@type": "DefinedRegion", addressCountry: "US" }, shippingRate: { "@type": "MonetaryAmount", value: "50.00", currency: "USD" }, deliveryTime: { "@type": "ShippingDeliveryTime", handlingTime: { "@type": "QuantitativeValue", minValue: 5, maxValue: 7, unitCode: "DAY" } } } },
+      { "@type": "Offer", priceCurrency: "GBP", price: Number(product.price_gbp).toFixed(2), availability: product.stock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock", url: `https://afro-fashionstyle.vercel.app/products/${product.slug}`, shippingDetails: { "@type": "OfferShippingDetails", shippingDestination: { "@type": "DefinedRegion", addressCountry: "GB" }, shippingRate: { "@type": "MonetaryAmount", value: "37.55", currency: "GBP" }, deliveryTime: { "@type": "ShippingDeliveryTime", handlingTime: { "@type": "QuantitativeValue", minValue: 5, maxValue: 7, unitCode: "DAY" } } } },
     ],
+    hasMerchantReturnPolicy: [{ "@type": "MerchantReturnPolicy", applicableCountry: ["US", "GB"], returnPolicyCategory: "https://schema.org/MerchantReturnNotPermitted" }],
   };
   return <main><PremiumHeader/><ProductDetail product={product} related={(relatedRows || []) as Product[]}/><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}/></main>;
 }

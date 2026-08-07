@@ -2,6 +2,7 @@ import { v2 as cloudinary } from "cloudinary";
 import { isAdmin } from "../../lib/admin-auth";
 import { createAdminSupabase, createPublicSupabase } from "../../lib/supabase";
 import { productDescription } from "../../lib/blog";
+import { isProductCategory } from "../../lib/catalog";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
     const form = await request.formData();
     const name = String(form.get("name") || "").trim();
     const suppliedDescription = String(form.get("description") || "").trim();
-    const category = String(form.get("category") || "Collection");
+    const category = String(form.get("category") || "").trim();
     const description = suppliedDescription || productDescription(name, category);
     const priceUsd = Number(form.get("priceUsd"));
     const priceGbp = Math.round(priceUsd * usdToGbp * 100) / 100;
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
     const stock = stockValue ? Number(stockValue) : 500;
     const sizes = String(form.get("sizes") || "US 2,US 4,US 6,US 8,US 10,US 12,US 14,US 16,US 18").split(",").map((size) => size.trim()).filter(Boolean).slice(0, 20);
     const image = form.get("image");
-    if (!name || !Number.isFinite(priceUsd) || priceUsd < 0 || !Number.isFinite(priceGbp) || priceGbp < 0 || !Number.isInteger(stock) || stock < 0) {
+    if (!name || !isProductCategory(category) || !Number.isFinite(priceUsd) || priceUsd < 0 || !Number.isFinite(priceGbp) || priceGbp < 0 || !Number.isInteger(stock) || stock < 0) {
       return Response.json({ error: "Valid name, USD/GBP prices and inventory are required" }, { status: 400 });
     }
     if (!(image instanceof File) || !image.type.startsWith("image/") || image.size > 10 * 1024 * 1024) {

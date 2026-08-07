@@ -2,6 +2,7 @@ import { v2 as cloudinary } from "cloudinary";
 import { isAdmin } from "../../../../lib/admin-auth";
 import { productDescription, slugify } from "../../../../lib/blog";
 import { createAdminSupabase } from "../../../../lib/supabase";
+import { isProductCategory } from "../../../../lib/catalog";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,11 +12,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const { id } = await context.params;
   const input = await request.json() as Record<string, unknown>;
   const name = String(input.name || "").trim();
-  const category = String(input.category || "Collection").trim();
+  const category = String(input.category || "").trim();
   const priceUsd = Number(input.priceUsd);
   const stock = Number(input.stock);
   const status = ["active", "draft", "archived"].includes(String(input.status)) ? String(input.status) : "active";
-  if (!name || !Number.isFinite(priceUsd) || priceUsd < 0 || !Number.isInteger(stock) || stock < 0) {
+  if (!name || !isProductCategory(category) || !Number.isFinite(priceUsd) || priceUsd < 0 || !Number.isInteger(stock) || stock < 0) {
     return Response.json({ error: "Valid product details are required" }, { status: 400 });
   }
   const supabase = createAdminSupabase();

@@ -9,9 +9,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL("https://afro-fashionstyle.vercel.app"),
   title: { default: "Afro.Fashionstyle | Premium Nigerian Fashion for Women", template: "%s | Afro.Fashionstyle" },
-  description: "Shop premium Afrocentric womenswear, Ankara dresses, Adire gowns and Nigerian occasion wear. Designed for women in the USA and UK.",
+  description: "Shop made-to-order Nigerian dresses, two-piece outfits, lace occasion wear and African fashion designs for women in the USA and UK.",
   keywords: ["African fashion for women USA", "Nigerian dresses online", "Ankara dresses USA", "Adire fashion", "African occasion wear UK"],
-  openGraph: { title: "Afro.Fashionstyle — Wear Your Story", description: "Modern silhouettes. Nigerian soul. Premium womenswear for the USA and UK.", images: ["/og.png"], type: "website" },
+  openGraph: { title: "Afro.Fashionstyle — Nigerian Womenswear for the USA & UK", description: "Made-to-order Nigerian dresses, sets, lace outfits and occasion wear with tracked USA and UK delivery.", images: ["/og.png"], type: "website", locale: "en_US", alternateLocale: ["en_GB"] },
   twitter: { card: "summary_large_image", title: "Afro.Fashionstyle — Wear Your Story", images: ["/og.png"] },
   icons: { icon: "/afro-fashionstyle-monogram.png", apple: "/afro-fashionstyle-monogram.png" },
   alternates: { canonical: "/" },
@@ -22,8 +22,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const schema = {
     "@context": "https://schema.org", "@type": "ClothingStore", name: "Afro.Fashionstyle",
-    url: "https://afrofashionstyle.com", areaServed: ["US", "GB"],
-    description: "Premium Nigerian-inspired womenswear serving customers in the USA and UK.",
+    url: "https://afro-fashionstyle.vercel.app", logo: "https://afro-fashionstyle.vercel.app/afro-fashionstyle-monogram.png", areaServed: ["US", "GB"],
+    description: "Made-to-order Nigerian womenswear produced in Lagos and delivered to customers in the USA and UK.",
+    address: { "@type": "PostalAddress", addressLocality: "Lekki", addressRegion: "Lagos", addressCountry: "NG" },
+    email: "afrofashionclub@gmail.com", telephone: "+2347049841931",
     currenciesAccepted: "USD, GBP", paymentAccepted: "PayPal, Flutterwave",
   };
   return <html lang="en" suppressHydrationWarning><body>
