@@ -15,7 +15,6 @@ const ALLOWED_EVENTS = new Set([
   "Contact",
   "AddPaymentInfo",
   "Lead",
-  "Purchase",
 ]);
 
 type MetaEventRequest = {

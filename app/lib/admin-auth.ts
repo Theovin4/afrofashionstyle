@@ -29,7 +29,7 @@ export async function isAdminBase() {
   } catch {
     // Preserve the explicitly enabled transition fallback.
   }
-  return process.env.ALLOW_LEGACY_ADMIN_AUTH !== "false" && validLegacySession();
+  return process.env.ALLOW_LEGACY_ADMIN_AUTH === "true" && validLegacySession();
 }
 
 export async function isAdmin() {

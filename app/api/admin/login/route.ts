@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     console.info("[admin-auth] password accepted", { mfaRequired: process.env.ADMIN_REQUIRE_MFA === "true" });
     return NextResponse.redirect(new URL(process.env.ADMIN_REQUIRE_MFA === "true" ? "/admin-security" : "/admin", request.url), 303);
   }
-  if (process.env.ALLOW_LEGACY_ADMIN_AUTH === "false" || !validAdminPassword(password)) {
+  if (process.env.ALLOW_LEGACY_ADMIN_AUTH !== "true" || !validAdminPassword(password)) {
     console.warn("[admin-auth] legacy login rejected");
     return NextResponse.redirect(new URL("/admin-login?error=credentials", request.url), 303);
   }

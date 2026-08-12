@@ -31,7 +31,10 @@ export async function enforceRateLimit(
   });
   if (error) {
     console.error("Security rate limit unavailable", { scope });
-    return null;
+    return Response.json(
+      { error: "Security service is temporarily unavailable." },
+      { status: 503 },
+    );
   }
   const result = Array.isArray(data) ? data[0] : data;
   if (result?.allowed !== false) return null;

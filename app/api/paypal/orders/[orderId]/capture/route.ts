@@ -2,11 +2,14 @@ import { completeOrder } from "../../../../../lib/orders";
 import { getPayPalAccessToken, paypalBaseUrl } from "../../../../../lib/paypal";
 import { createAdminSupabase } from "../../../../../lib/supabase";
 import { sendVerifiedPurchaseForOrder } from "../../../../../lib/meta-purchase";
+import { enforceRateLimit } from "../../../../../lib/security";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function POST(_request: Request, { params }: { params: Promise<{ orderId: string }> }) {
+export async function POST(request: Request, { params }: { params: Promise<{ orderId: string }> }) {
+  const limited = await enforceRateLimit(request, "paypal-capture", 15, 15 * 60);
+  if (limited) return limited;
   const { orderId } = await params;
   if (!/^[A-Z0-9]{1,36}$/.test(orderId)) return Response.json({ error: "Invalid PayPal order ID" }, { status: 400 });
   try {

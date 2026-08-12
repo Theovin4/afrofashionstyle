@@ -9,6 +9,6 @@ export default function TermsPage() {
     <h2>Product presentation</h2><p>We work to represent colors and textiles accurately. Device displays and handcrafted textile variations may cause minor differences.</p>
     <h2>Intellectual property</h2><p>Afro.Fashionstyle branding, photography, product designs, copy and site materials may not be reproduced without permission.</p>
     <h2>Liability</h2><p>Nothing in these terms limits rights that cannot legally be excluded. Otherwise, liability is limited to the amount paid for the affected order to the extent permitted by law.</p>
-    <h2>Governing details</h2><p>The final legal business name, registered address and governing jurisdiction must be supplied by the business owner before formal legal review.</p>
+    <h2>Contact</h2><p>Questions about these terms may be sent to <a href="mailto:afrofashionclub@gmail.com">afrofashionclub@gmail.com</a> or Afro.Fashionstyle, Lekki, Lagos, Nigeria.</p>
   </article></main>;
 }
