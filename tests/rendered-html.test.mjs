@@ -94,3 +94,24 @@ test("Turnstile stays secure without covering the newsletter form", async () => 
   assert.match(home, /newsletter-fields/);
   assert.match(css, /\.turnstile-slot/);
 });
+
+test("administrator login is fixed-account, rate-limited, MFA-safe and recoverable", async () => {
+  const [login, loginPage, recovery, callback, reset] = await Promise.all([
+    read("app/api/admin/login/route.ts"),
+    read("app/admin-login/page.tsx"),
+    read("app/api/admin/password-reset/route.ts"),
+    read("app/auth/callback/route.ts"),
+    read("app/admin-reset/password-form.tsx"),
+  ]);
+  assert.match(login, /email !== configuredEmail/);
+  assert.match(login, /reason: "security_check"/);
+  assert.doesNotMatch(login, /console\.(?:log|info|warn|error).*\{ email/);
+  assert.match(loginPage, /readOnly/);
+  assert.match(loginPage, /Forgot your password/);
+  assert.match(recovery, /admin-password-reset", 3, 60 \* 60/);
+  assert.match(recovery, /resetPasswordForEmail/);
+  assert.match(callback, /exchangeCodeForSession/);
+  assert.match(callback, /next.*=== "\/admin-reset"/s);
+  assert.match(reset, /updateUser\(\{ password \}\)/);
+  assert.match(reset, /signOut\(\{ scope: "local" \}\)/);
+});
