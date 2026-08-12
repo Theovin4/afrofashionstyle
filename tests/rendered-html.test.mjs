@@ -115,6 +115,9 @@ test("administrator login is fixed-account, rate-limited, MFA-safe and recoverab
   assert.match(recovery, /resetPasswordForEmail/);
   assert.match(callback, /exchangeCodeForSession/);
   assert.match(callback, /next.*=== "\/admin-reset"/s);
-  assert.match(reset, /updateUser\(\{ password \}\)/);
+  assert.match(reset, /updateUser\(\{ password: normalizedPassword \}\)/);
+  assert.match(reset, /normalize\("NFKC"\)\.trim\(\)/);
+  assert.match(reset, /Passwords match/);
+  assert.match(reset, /Show password/);
   assert.match(reset, /signOut\(\{ scope: "local" \}\)/);
 });
