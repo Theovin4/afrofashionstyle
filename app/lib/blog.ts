@@ -59,10 +59,15 @@ export async function publishDailyBlogPost() {
   const supabase = createAdminSupabase();
   const today = new Date();
   const topic = TOPICS[Math.floor(today.getTime() / 86_400_000) % TOPICS.length];
-  const dateKey = today.toISOString().slice(0, 10);
-  const slug = `${slugify(topic.title)}-${dateKey}`;
-  const { data: existing } = await supabase.from("blog_posts").select("id").eq("slug", slug).maybeSingle();
-  if (existing) return { post: existing, created: false };
+  const slug = slugify(topic.title);
+  const { data: existing } = await supabase.from("blog_posts")
+    .select("id,slug,title")
+    .eq("title", topic.title)
+    .eq("status", "published")
+    .order("published_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (existing) return { post: existing, created: false, reason: "Topic already published" };
   const { data, error } = await supabase.from("blog_posts").insert({
     ...topic,
     slug,

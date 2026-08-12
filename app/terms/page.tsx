@@ -1,6 +1,6 @@
 import { PremiumHeader } from "../components/premium-header";
 
-export const metadata = { title: "Terms & Conditions", alternates: { canonical: "/terms" } };
+export const metadata = { title: "Terms & Conditions", alternates: { canonical: "/terms" }, robots: { index: false, follow: true } };
 
 export default function TermsPage() {
   return <main><PremiumHeader/><article className="policy-page"><span className="eyebrow">Legal</span><h1>Terms &amp; conditions</h1><p>Last updated July 26, 2026.</p>

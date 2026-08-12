@@ -17,7 +17,13 @@ export default async function JournalPage() {
     const { data } = await createPublicSupabase().from("blog_posts")
       .select("id,title,slug,excerpt,topic,published_at").eq("status", "published")
       .lte("published_at", new Date().toISOString()).order("published_at", { ascending: false }).limit(24);
-    posts = data || [];
+    const seenTitles = new Set<string>();
+    posts = [...(data || [])].sort((a, b) => new Date(a.published_at).getTime() - new Date(b.published_at).getTime()).filter((post) => {
+      const key = post.title.trim().toLowerCase();
+      if (seenTitles.has(key)) return false;
+      seenTitles.add(key);
+      return true;
+    }).sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
   } catch {
     // Runtime configuration is injected by Vercel; keep the page build-safe.
   }

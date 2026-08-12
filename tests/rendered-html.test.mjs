@@ -25,7 +25,7 @@ test("browser events use real actions and complete commerce payloads", async () 
     read("app/components/meta-pixel.tsx"),
     read("app/products/[slug]/product-detail.tsx"),
     read("app/components/cart-provider.tsx"),
-    read("app/shop/page.tsx"),
+    read("app/shop/shop-client.tsx"),
     read("app/page.tsx"),
     read("app/contact/page.tsx"),
   ]);
@@ -70,7 +70,7 @@ test("fbc is created only from a real fbclid", async () => {
 test("catalog exposes only the five approved categories", async () => {
   const [catalog, shop, admin, migration] = await Promise.all([
     read("app/lib/catalog.ts"),
-    read("app/shop/page.tsx"),
+    read("app/shop/shop-client.tsx"),
     read("app/admin/page.tsx"),
     read("supabase/migrations/20260807120000_enforce_five_product_categories.sql"),
   ]);
@@ -81,6 +81,22 @@ test("catalog exposes only the five approved categories", async () => {
   assert.match(shop, /PRODUCT_CATEGORIES/);
   assert.match(admin, /PRODUCT_CATEGORIES/);
   assert.doesNotMatch(shop, /new Set\(products\.map/);
+});
+
+test("indexing uses server-rendered products and consolidates duplicate journal URLs", async () => {
+  const [shopPage, sitemap, journalPost, publisher] = await Promise.all([
+    read("app/shop/page.tsx"),
+    read("app/sitemap.ts"),
+    read("app/journal/[slug]/page.tsx"),
+    read("app/lib/blog.ts"),
+  ]);
+  assert.match(shopPage, /createPublicSupabase/);
+  assert.match(shopPage, /<ShopClient products=\{products\}/);
+  assert.match(sitemap, /seenTitles/);
+  assert.match(journalPost, /permanentRedirect/);
+  assert.match(journalPost, /getCanonicalPost/);
+  assert.match(publisher, /eq\("title", topic\.title\)/);
+  assert.doesNotMatch(publisher, /dateKey/);
 });
 
 test("Turnstile stays secure without covering the newsletter form", async () => {
