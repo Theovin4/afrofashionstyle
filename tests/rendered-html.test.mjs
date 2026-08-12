@@ -109,6 +109,8 @@ test("administrator login is fixed-account, rate-limited, MFA-safe and recoverab
   assert.doesNotMatch(login, /console\.(?:log|info|warn|error).*\{ email/);
   assert.match(loginPage, /readOnly/);
   assert.match(loginPage, /Forgot your password/);
+  const adminStudio = await read("app/admin/page.tsx");
+  assert.match(adminStudio, /href="\/admin-reset">Change password/);
   assert.match(recovery, /admin-password-reset", 3, 60 \* 60/);
   assert.match(recovery, /resetPasswordForEmail/);
   assert.match(callback, /exchangeCodeForSession/);

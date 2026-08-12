@@ -195,7 +195,7 @@ export default function AdminPage() {
           <BrandLogo variant="adminMark" href={null} decorative/>
           <div><span className="eyebrow">Commerce overview</span><h1>Welcome, Admin.</h1></div>
         </div>
-        <div><Link href="/">View store ↗</Link><button onClick={() => setShowForm(true)}>＋ Add product</button></div>
+        <div><Link className="admin-security-link" href="/admin-reset">Change password</Link><Link href="/">View store ↗</Link><button onClick={() => setShowForm(true)}>＋ Add product</button></div>
       </header>
       {notice && <div className="admin-success">{notice}<button onClick={() => setNotice("")}>×</button></div>}
       <div className="metric-grid" id="overview">
