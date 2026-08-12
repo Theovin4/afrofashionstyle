@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { adminCookieName, adminSessionToken, validAdminPassword } from "../../../lib/admin-auth";
 import { enforceRateLimit, verifyTurnstile } from "../../../lib/security";
 import { createAuthSupabase, isAuthorizedAdminUser } from "../../../lib/supabase-auth";
@@ -28,6 +29,10 @@ export async function POST(request: Request) {
     if (email !== configuredEmail) {
       console.warn("[admin-auth] login rejected", { reason: "invalid_credentials" });
       return NextResponse.redirect(new URL("/admin-login?error=credentials", request.url), 303);
+    }
+    const cookieStore = await cookies();
+    for (const cookie of cookieStore.getAll()) {
+      if (cookie.name.startsWith("sb-") && cookie.name.includes("auth-token")) cookieStore.delete(cookie.name);
     }
     const supabase = await createAuthSupabase();
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });

@@ -104,6 +104,7 @@ test("administrator login is fixed-account, rate-limited, MFA-safe and recoverab
     read("app/admin-reset/password-form.tsx"),
   ]);
   assert.match(login, /email !== configuredEmail/);
+  assert.match(login, /cookie\.name\.startsWith\("sb-"\)/);
   assert.match(login, /reason: "security_check"/);
   assert.doesNotMatch(login, /console\.(?:log|info|warn|error).*\{ email/);
   assert.match(loginPage, /readOnly/);
