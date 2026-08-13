@@ -4,6 +4,7 @@ import { CartProvider } from "./components/cart-provider";
 import { MetaPixel } from "./components/meta-pixel";
 import { ContactActions } from "./components/contact-actions";
 import { ThemeControl } from "./components/theme-control";
+import { ActionToastViewport } from "./components/action-toast";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -50,6 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       });
     `}</Script>
     <CartProvider>{children}</CartProvider>
+    <ActionToastViewport/>
     <ContactActions/>
     <ThemeControl/>
     <MetaPixel/>

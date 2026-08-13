@@ -1,4 +1,5 @@
 import { v2 as cloudinary } from "cloudinary";
+import { revalidatePath } from "next/cache";
 import { isAdmin } from "../../lib/admin-auth";
 import { createAdminSupabase, createPublicSupabase } from "../../lib/supabase";
 import { productDescription } from "../../lib/blog";
@@ -44,21 +45,27 @@ export async function POST(request: Request) {
     if (!name || !isProductCategory(category) || !Number.isFinite(priceUsd) || priceUsd < 0 || !Number.isFinite(priceGbp) || priceGbp < 0 || !Number.isInteger(stock) || stock < 0) {
       return Response.json({ error: "Valid name, USD/GBP prices and inventory are required" }, { status: 400 });
     }
-    if (!(image instanceof File) || !image.type.startsWith("image/") || image.size > 10 * 1024 * 1024) {
-      return Response.json({ error: "A JPG, PNG, WebP or AVIF image under 10MB is required" }, { status: 400 });
+    const allowedImageTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
+    if (!(image instanceof File) || !allowedImageTypes.has(image.type) || image.size > 4 * 1024 * 1024) {
+      return Response.json({ error: "Choose a JPG, PNG, WebP or AVIF image under 4MB. The image editor compresses large photos automatically." }, { status: 400 });
     }
 
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const apiKey = process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY;
+    const apiSecret = process.env.CLOUDINARY_API_SECRET;
+    if (!cloudName || !apiKey || !apiSecret) {
+      return Response.json({ error: "Product image storage is not configured. Check the Cloudinary environment variables." }, { status: 503 });
+    }
     cloudinary.config({
-      cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
-      api_key: process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY,
-      api_secret: process.env.CLOUDINARY_API_SECRET,
+      cloud_name: cloudName,
+      api_key: apiKey,
+      api_secret: apiSecret,
       secure: true,
     });
     const bytes = Buffer.from(await image.arrayBuffer());
     const uploaded = await new Promise<{ asset_id: string; public_id: string; secure_url: string; width: number; height: number }>((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream({
         folder: "afro-fashionstyle/products",
-        upload_preset: process.env.CLOUDINARY_UPLOAD_PRESET || undefined,
         resource_type: "image",
         transformation: [{ width: 1800, height: 2400, crop: "limit", quality: "auto", fetch_format: "auto" }],
         tags: ["afro-fashionstyle", "product"],
@@ -78,9 +85,12 @@ export async function POST(request: Request) {
       stream.end(bytes);
     });
 
+    const baseSlug = slugify(name) || "product";
+    const { data: existingSlug } = await supabase.from("products").select("id").eq("slug", baseSlug).maybeSingle();
+    const productSlug = existingSlug ? `${baseSlug}-${Date.now().toString(36)}` : baseSlug;
     const { data: product, error: productError } = await supabase.from("products").insert({
       name,
-      slug: `${slugify(name) || "product"}-${Date.now().toString(36)}`,
+      slug: productSlug,
       description,
       category,
       price_usd: priceUsd,
@@ -88,7 +98,10 @@ export async function POST(request: Request) {
       stock,
       status: "active",
     }).select().single();
-    if (productError) throw productError;
+    if (productError) {
+      await cloudinary.uploader.destroy(uploaded.public_id).catch(() => undefined);
+      throw productError;
+    }
     const { error: imageError } = await supabase.from("product_images").insert({
       product_id: product.id,
       cloudinary_asset_id: uploaded.asset_id,
@@ -98,7 +111,11 @@ export async function POST(request: Request) {
       width: uploaded.width,
       height: uploaded.height,
     });
-    if (imageError) throw imageError;
+    if (imageError) {
+      await supabase.from("products").delete().eq("id", product.id);
+      await cloudinary.uploader.destroy(uploaded.public_id).catch(() => undefined);
+      throw imageError;
+    }
     if (sizes.length) {
       const perSize = Math.floor(stock / sizes.length);
       const remainder = stock % sizes.length;
@@ -106,11 +123,28 @@ export async function POST(request: Request) {
         product_id: product.id, size, color: "As shown", sku: `${product.slug}-${size.replace(/[^a-z0-9]/gi, "").toUpperCase()}`,
         stock: perSize + (index < remainder ? 1 : 0),
       })));
-      if (variantError) console.error("Product variants could not be created", variantError);
+      if (variantError) {
+        await supabase.from("products").delete().eq("id", product.id);
+        await cloudinary.uploader.destroy(uploaded.public_id).catch(() => undefined);
+        throw variantError;
+      }
     }
-    return Response.json({ product: { ...product, imageUrl: uploaded.secure_url } }, { status: 201 });
+    revalidatePath("/");
+    revalidatePath("/shop");
+    revalidatePath(`/collections/${category.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`);
+    revalidatePath(`/products/${product.slug}`);
+    revalidatePath("/sitemap.xml");
+    return Response.json({
+      product: {
+        ...product,
+        product_images: [{ secure_url: uploaded.secure_url, alt_text: `${name} by Afro.Fashionstyle`, position: 0 }],
+        imageUrl: uploaded.secure_url,
+      },
+      message: `${name} is live in the store and ready for Google discovery.`,
+    }, { status: 201 });
   } catch (error) {
-    console.error("Product publish failed", error);
-    return Response.json({ error: "Product could not be published" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Unknown upload error";
+    console.error("Product publish failed", { message });
+    return Response.json({ error: message.includes("Cloudinary") ? "Cloudinary could not process this image. Try exporting it as JPG or WebP." : "Product could not be published. Please try again." }, { status: 500 });
   }
 }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createContext, useContext, useEffect, useState } from "react";
 import type { CartItem, Currency, Product } from "../lib/commerce-types";
 import { trackMeta } from "./meta-pixel";
+import { showActionToast } from "./action-toast";
 
 type CartContextValue = {
   items: CartItem[];
@@ -61,6 +62,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       content_type: "product", value: Number(currency === "GBP" ? product.price_gbp : product.price_usd), currency,
     });
     setOpen(true);
+    showActionToast(`${product.name} was added to your bag.`);
   }
 
   function updateQuantity(id: string, size: string, quantity: number) {
@@ -73,6 +75,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   function removeItem(id: string, size: string) {
     setItems((current) => current.filter((item) => item.id !== id || item.size !== size));
+    showActionToast("Item removed from your bag.", "info");
   }
 
   const count = items.reduce((sum, item) => sum + item.quantity, 0);

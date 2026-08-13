@@ -5,6 +5,7 @@ import { PremiumHeader } from "../components/premium-header";
 import { SiteFooter } from "../components/site-footer";
 import { trackMetaWithUser } from "../components/meta-pixel";
 import { Turnstile } from "../components/turnstile";
+import { showActionToast } from "../components/action-toast";
 
 export default function ContactPage() {
   const [notice, setNotice] = useState("");
@@ -16,10 +17,11 @@ export default function ContactPage() {
       const response = await fetch("/api/enquiries", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, email, phone, subject: fields.get("subject"), message: fields.get("message"), turnstileToken: fields.get("cf-turnstile-response") }) });
       const result = await response.json() as { message?: string; error?: string }; setNotice(result.message || result.error || "Please try again."); setSending(false);
       if (response.ok) {
+        showActionToast(result.message || "Your enquiry was sent successfully.");
         const [firstName = "", ...lastName] = name.trim().split(/\s+/);
         trackMetaWithUser("Lead", { content_name: "Customer style enquiry" }, { email, phone, firstName, lastName: lastName.join(" ") });
         form.reset();
-      }
+      } else showActionToast(result.error || "Your enquiry could not be sent.", "error");
     }}>
       <div className="form-split"><label>Name<input name="name" required minLength={2}/></label><label>Email<input name="email" type="email" required/></label></div>
       <label>Phone (optional)<input name="phone" type="tel"/></label>

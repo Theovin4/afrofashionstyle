@@ -3,6 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { BrandLogo } from "../../components/brand-logo";
+import { showActionToast } from "../../components/action-toast";
 
 type TrackedOrder = {
   order_number: string; payment_status: string; fulfillment_status: string;
@@ -26,8 +27,9 @@ function Tracker() {
     });
     const result = await response.json() as { order?: TrackedOrder; error?: string };
     setLoading(false);
-    if (!response.ok || !result.order) { setError(result.error || "Order not found"); return; }
+    if (!response.ok || !result.order) { const message = result.error || "Order not found"; setError(message); showActionToast(message, "error"); return; }
     setOrder(result.order);
+    showActionToast(`${result.order.order_number} was found.`);
   }
 
   const stages = ["processing", "shipped", "delivered"];

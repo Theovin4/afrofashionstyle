@@ -5,9 +5,11 @@ import Link from "next/link";
 import Image from "next/image";
 import { BrandLogo } from "../components/brand-logo";
 import { PRODUCT_CATEGORIES } from "../lib/catalog";
+import { ProductImageEditor } from "./product-image-editor";
+import { showActionToast } from "../components/action-toast";
 
 type Product = { id: string; name: string; category: string; price: number; stock: number; status: string; imageUrl?: string; description?: string };
-type ApiProduct = { id: string; name: string; category: string; price_usd: number; stock: number; status: string; product_images?: Array<{ secure_url: string }> };
+type ApiProduct = { id: string; name: string; category: string; price_usd: number; stock: number; status: string; description?: string; product_images?: Array<{ secure_url: string }> };
 type Order = { id: string; order_number: string; customer_name: string; customer_email: string; currency: string; total: number; payment_status: string; fulfillment_status: string; tracking_number?: string; tracking_url?: string; carrier?: string; created_at: string; order_items?: Array<{ product_name: string; quantity: number; selected_size?: string }> };
 type Operations = {
   discounts: Array<{ id: string; code: string; kind: string; value: number; active: boolean; uses: number }>;
@@ -25,6 +27,7 @@ export default function AdminPage() {
   const [showForm, setShowForm] = useState(false);
   const [notice, setNotice] = useState("");
   const [publishing, setPublishing] = useState(false);
+  const [editedImage, setEditedImage] = useState<File | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [operations, setOperations] = useState<Operations>({ discounts: [], shipping: [], reviews: [], settings: {} });
@@ -41,6 +44,14 @@ export default function AdminPage() {
   const [postStatus, setPostStatus] = useState("all");
   const [reportStart, setReportStart] = useState(defaultReportStart);
   const [reportEnd, setReportEnd] = useState(() => isoDate(new Date()));
+
+  useEffect(() => {
+    if (!notice || notice.includes("…")) return;
+    const failed = /could not|failed|error|unavailable|invalid|required/i.test(notice);
+    showActionToast(notice, failed ? "error" : "success");
+    const timeout = window.setTimeout(() => setNotice(""), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [notice]);
 
   const filteredProducts = useMemo(() => products.filter((product) => {
     const query = productQuery.trim().toLowerCase();
@@ -69,7 +80,7 @@ export default function AdminPage() {
       .then(({ products: rows }: { products: ApiProduct[] }) => setProducts(rows.map((product) => ({
         id: product.id, name: product.name, category: product.category, price: Number(product.price_usd),
         stock: product.stock, status: product.status === "active" ? "Active" : product.status,
-        imageUrl: product.product_images?.[0]?.secure_url,
+        imageUrl: product.product_images?.[0]?.secure_url, description: product.description,
       })))).catch(() => setNotice("Products could not be loaded."));
   }, []);
 
@@ -174,6 +185,7 @@ export default function AdminPage() {
         stock: product.stock, status: "Active", imageUrl: product.imageUrl,
       }, ...all]);
       setShowForm(false);
+      setEditedImage(null);
       setNotice("Product published successfully.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Product could not be published.");
@@ -268,14 +280,14 @@ export default function AdminPage() {
       </section>
     </section>
     {showForm && <div className="modal-backdrop" role="dialog" aria-modal="true">
-      <form className="product-modal" action={addProduct}>
-        <div><span className="eyebrow">Catalog</span><h2>Add a new product</h2><button type="button" onClick={() => setShowForm(false)}>×</button></div>
+      <form className="product-modal" onSubmit={(event) => { event.preventDefault(); if (!editedImage) { setNotice("Choose and prepare a product image before publishing."); return; } const formData = new FormData(event.currentTarget); formData.set("image", editedImage); void addProduct(formData); }}>
+        <div><span className="eyebrow">Catalog</span><h2>Add a new product</h2><button type="button" aria-label="Close product form" onClick={() => { setShowForm(false); setEditedImage(null); }}>×</button></div>
         <label>Product name<input name="name" required placeholder="e.g. Nia Adire Wrap Dress"/></label>
         <label>Category<select name="category">{PRODUCT_CATEGORIES.map((category) => <option key={category}>{category}</option>)}</select></label>
         <div className="form-split"><label>Price (USD)<input name="priceUsd" type="number" min="1" step="0.01" required/></label><label>Price (GBP)<input value="Calculated automatically from USD" readOnly/></label></div>
         <label>Inventory<input name="stock" type="number" min="0" defaultValue="500"/><small>Defaults to 500 units.</small></label>
         <label>Available sizes<input name="sizes" defaultValue="US 2, US 4, US 6, US 8, US 10, US 12, US 14, US 16, US 18"/></label>
-        <label>Product imagery<input name="image" type="file" accept="image/jpeg,image/png,image/webp,image/avif" required/></label>
+        <ProductImageEditor onReady={setEditedImage}/>
         <label>Description<textarea name="description" rows={4} placeholder="Optional — include fabric, fit and suitable occasions. A factual product summary is added if left blank."/></label>
         <button className="publish" disabled={publishing}>{publishing ? "Publishing…" : "Publish product"}</button>
       </form>

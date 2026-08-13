@@ -7,6 +7,7 @@ import type { Product } from "../../lib/commerce-types";
 import { useCart } from "../../components/cart-provider";
 import { ProductCard } from "../../components/product-card";
 import { trackMeta } from "../../components/meta-pixel";
+import { showActionToast } from "../../components/action-toast";
 
 const sizes = ["US 2", "US 4", "US 6", "US 8", "US 10", "US 12", "US 14", "US 16", "US 18"];
 
@@ -35,7 +36,7 @@ export function ProductDetail({ product, related }: { product: Product; related:
   }, [product.id, product.slug, product.name, product.category, price, currency]);
 
   function add() {
-    if (!size) { setSizeError(true); return; }
+    if (!size) { setSizeError(true); showActionToast("Select a size before adding this piece.", "error"); return; }
     addItem(product, size);
     setSizeError(false);
   }
@@ -52,7 +53,7 @@ export function ProductDetail({ product, related }: { product: Product; related:
       <div className="size-grid">{(product.product_variants?.filter((variant) => variant.active && variant.stock > 0).map((variant) => variant.size) || sizes).map((item) => <button className={size === item ? "active" : ""} onClick={() => { setSize(item); setSizeError(false); }} key={item}>{item}</button>)}</div>
       {sizeError && <p className="size-error">Please select your size.</p>}
       <button className="add-to-bag" disabled={product.stock < 1} onClick={add}>{product.stock ? "Add to bag" : "Sold out"} · {currency === "USD" ? "$" : "£"}{price.toFixed(2)}</button>
-      <button className="wishlist-button" onClick={() => { const next = !wishlisted; setWishlisted(next); localStorage.setItem(`wishlist:${product.id}`, String(next)); }}>{wishlisted ? "♥ Saved to wishlist" : "♡ Save to wishlist"}</button>
+      <button className="wishlist-button" onClick={() => { const next = !wishlisted; setWishlisted(next); localStorage.setItem(`wishlist:${product.id}`, String(next)); showActionToast(next ? `${product.name} was saved to your wishlist.` : `${product.name} was removed from your wishlist.`, next ? "success" : "info"); }}>{wishlisted ? "♥ Saved to wishlist" : "♡ Save to wishlist"}</button>
       <div className="product-promises"><p><b>Fly Logistics delivery</b><span>Tracked doorstep delivery</span></p><p><b>Made on request</b><span>Allow 5–7 working days</span></p><p><b>Need size help?</b><span>Forward your measurements before production</span></p></div>
       <details open><summary>Story &amp; details</summary><p>{product.description || "Designed between Lagos and the USA with a focus on form, movement and cultural expression."}</p></details>
       <details><summary>Delivery &amp; order policy</summary><p>Fly Logistics provides tracked USA and UK doorstep delivery. All outfits are made on request, so no returns or refunds are offered after production begins. Please forward your measurements if you are unsure of your size.</p></details>
@@ -63,6 +64,7 @@ export function ProductDetail({ product, related }: { product: Product; related:
           const response = await fetch("/api/reviews", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
             productId: product.id, name: fields.get("name"), email: fields.get("email"), rating: Number(fields.get("rating")), title: fields.get("title"), body: fields.get("body"),
           }) }); const result = await response.json() as { message?: string; error?: string }; setReviewMessage(result.message || result.error || "Unable to submit review.");
+          showActionToast(result.message || result.error || "Unable to submit review.", response.ok ? "success" : "error");
           if (response.ok) event.currentTarget.reset();
         }}>
           <div className="form-split"><label>Name<input name="name" required/></label><label>Email<input name="email" type="email" required/></label></div>
