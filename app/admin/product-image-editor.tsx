@@ -11,6 +11,7 @@ export function ProductImageEditor({ onReady }: Props) {
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => () => { if (sourceUrl) URL.revokeObjectURL(sourceUrl); }, [sourceUrl]);
 
@@ -42,8 +43,10 @@ export function ProductImageEditor({ onReady }: Props) {
   }
 
   function choose(file?: File) {
+    setError("");
     if (!file) { setSourceUrl(""); onReady(null); return; }
-    if (!["image/jpeg", "image/png", "image/webp", "image/avif"].includes(file.type)) { setSourceUrl(""); onReady(null); return; }
+    if (!["image/jpeg", "image/png", "image/webp", "image/avif"].includes(file.type)) { setSourceUrl(""); onReady(null); setError("Choose a JPG, PNG, WebP or AVIF photograph."); return; }
+    onReady(file);
     if (sourceUrl) URL.revokeObjectURL(sourceUrl);
     const url = URL.createObjectURL(file);
     setSourceUrl(url);
@@ -51,11 +54,12 @@ export function ProductImageEditor({ onReady }: Props) {
     setRotation(0);
     const image = new window.Image();
     image.onload = () => { imageRef.current = image; render(image, 1, 0); };
+    image.onerror = () => { setProcessing(false); setError("This photograph could not be opened. Export it as JPG or PNG and try again."); };
     image.src = url;
   }
 
   return <div className="image-editor">
-    <label className="image-picker">Product image<input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={(event) => choose(event.target.files?.[0])} required/></label>
+    <label className="image-picker">Product image<input name="sourceImage" type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={(event) => choose(event.target.files?.[0])} required/></label>
     <div className={`image-editor-preview${sourceUrl ? "" : " empty"}`}><canvas ref={canvasRef} aria-label="Edited product image preview"/>{!sourceUrl && <span>Choose a clear front-facing product photograph to begin.</span>}</div>
     {sourceUrl && <>
       <div className="image-editor-controls">
@@ -65,5 +69,6 @@ export function ProductImageEditor({ onReady }: Props) {
       </div>
       <small>{processing ? "Preparing optimized image…" : "Preview is cropped to the storefront’s 3:4 product format and compressed for fast loading."}</small>
     </>}
+    {error && <p className="image-editor-error" role="alert">{error}</p>}
   </div>;
 }

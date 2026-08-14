@@ -174,8 +174,30 @@ export default function AdminPage() {
 
   async function addProduct(formData: FormData) {
     setPublishing(true);
-    setNotice("Uploading image and publishing product…");
+    setNotice("Preparing secure image upload…");
     try {
+      const image = formData.get("image");
+      if (!(image instanceof File)) throw new Error("Choose a product image before publishing.");
+      const signatureResponse = await fetch("/api/admin/cloudinary-signature", { method: "POST" });
+      const signature = await signatureResponse.json() as { cloudName?: string; apiKey?: string; timestamp?: number; folder?: string; tags?: string; signature?: string; error?: string };
+      if (!signatureResponse.ok || !signature.cloudName || !signature.apiKey || !signature.timestamp || !signature.folder || !signature.tags || !signature.signature) {
+        throw new Error(signature.error || "Secure image upload could not start.");
+      }
+      setNotice("Uploading optimized product image…");
+      const cloudinaryForm = new FormData();
+      cloudinaryForm.set("file", image);
+      cloudinaryForm.set("api_key", signature.apiKey);
+      cloudinaryForm.set("timestamp", String(signature.timestamp));
+      cloudinaryForm.set("folder", signature.folder);
+      cloudinaryForm.set("tags", signature.tags);
+      cloudinaryForm.set("signature", signature.signature);
+      const mediaResponse = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(signature.cloudName)}/image/upload`, { method: "POST", body: cloudinaryForm });
+      const media = await mediaResponse.json() as { public_id?: string; error?: { message?: string } };
+      if (!mediaResponse.ok || !media.public_id) throw new Error(media.error?.message || "The product image could not be uploaded.");
+      formData.delete("image");
+      formData.delete("sourceImage");
+      formData.set("cloudinaryPublicId", media.public_id);
+      setNotice("Saving product and inventory…");
       const response = await fetch("/api/products", { method: "POST", body: formData });
       const result = await response.json() as { product?: ApiProduct & { imageUrl: string }; error?: string };
       if (!response.ok || !result.product) throw new Error(result.error || "Product could not be published");
@@ -186,7 +208,7 @@ export default function AdminPage() {
       }, ...all]);
       setShowForm(false);
       setEditedImage(null);
-      setNotice("Product published successfully.");
+      setNotice(`${product.name} was published successfully and is now visible in the store.`);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Product could not be published.");
     } finally {

@@ -42,12 +42,16 @@ export async function POST(request: Request) {
     const stock = stockValue ? Number(stockValue) : 500;
     const sizes = String(form.get("sizes") || "US 2,US 4,US 6,US 8,US 10,US 12,US 14,US 16,US 18").split(",").map((size) => size.trim()).filter(Boolean).slice(0, 20);
     const image = form.get("image");
+    const cloudinaryPublicId = String(form.get("cloudinaryPublicId") || "").trim();
     if (!name || !isProductCategory(category) || !Number.isFinite(priceUsd) || priceUsd < 0 || !Number.isFinite(priceGbp) || priceGbp < 0 || !Number.isInteger(stock) || stock < 0) {
       return Response.json({ error: "Valid name, USD/GBP prices and inventory are required" }, { status: 400 });
     }
     const allowedImageTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
-    if (!(image instanceof File) || !allowedImageTypes.has(image.type) || image.size > 4 * 1024 * 1024) {
+    if (!cloudinaryPublicId && (!(image instanceof File) || !allowedImageTypes.has(image.type) || image.size > 4 * 1024 * 1024)) {
       return Response.json({ error: "Choose a JPG, PNG, WebP or AVIF image under 4MB. The image editor compresses large photos automatically." }, { status: 400 });
+    }
+    if (cloudinaryPublicId && !cloudinaryPublicId.startsWith("afro-fashionstyle/products/")) {
+      return Response.json({ error: "The uploaded product image could not be verified." }, { status: 400 });
     }
 
     const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
@@ -62,28 +66,23 @@ export async function POST(request: Request) {
       api_secret: apiSecret,
       secure: true,
     });
-    const bytes = Buffer.from(await image.arrayBuffer());
-    const uploaded = await new Promise<{ asset_id: string; public_id: string; secure_url: string; width: number; height: number }>((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream({
-        folder: "afro-fashionstyle/products",
-        resource_type: "image",
-        transformation: [{ width: 1800, height: 2400, crop: "limit", quality: "auto", fetch_format: "auto" }],
-        tags: ["afro-fashionstyle", "product"],
-      }, (error, result) => {
-        if (error || !result?.asset_id || !result.public_id || !result.secure_url || !result.width || !result.height) {
-          reject(error || new Error("Cloudinary returned an incomplete upload result"));
-          return;
-        }
-        resolve({
-          asset_id: result.asset_id,
-          public_id: result.public_id,
-          secure_url: result.secure_url,
-          width: result.width,
-          height: result.height,
+    let uploaded: { asset_id: string; public_id: string; secure_url: string; width: number; height: number };
+    if (cloudinaryPublicId) {
+      const resource = await cloudinary.api.resource(cloudinaryPublicId, { resource_type: "image" });
+      if (!resource?.asset_id || !resource.public_id || !resource.secure_url || !resource.width || !resource.height) throw new Error("Cloudinary returned an incomplete verified image");
+      uploaded = { asset_id: resource.asset_id, public_id: resource.public_id, secure_url: resource.secure_url, width: resource.width, height: resource.height };
+    } else {
+      const bytes = Buffer.from(await (image as File).arrayBuffer());
+      uploaded = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream({ folder: "afro-fashionstyle/products", resource_type: "image", tags: ["afro-fashionstyle", "product"] }, (error, result) => {
+          if (error || !result?.asset_id || !result.public_id || !result.secure_url || !result.width || !result.height) {
+            reject(error || new Error("Cloudinary returned an incomplete upload result")); return;
+          }
+          resolve({ asset_id: result.asset_id, public_id: result.public_id, secure_url: result.secure_url, width: result.width, height: result.height });
         });
+        stream.end(bytes);
       });
-      stream.end(bytes);
-    });
+    }
 
     const baseSlug = slugify(name) || "product";
     const { data: existingSlug } = await supabase.from("products").select("id").eq("slug", baseSlug).maybeSingle();
