@@ -9,6 +9,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const slugify = (value: string) => value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const allowedImageTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
+const allowedCloudinaryFormats = new Set(["jpg", "jpeg", "png", "webp", "avif"]);
+const maxProductImageBytes = 4 * 1024 * 1024;
 
 export async function GET() {
   try {
@@ -46,8 +49,7 @@ export async function POST(request: Request) {
     if (!name || !isProductCategory(category) || !Number.isFinite(priceUsd) || priceUsd < 0 || !Number.isFinite(priceGbp) || priceGbp < 0 || !Number.isInteger(stock) || stock < 0) {
       return Response.json({ error: "Valid name, USD/GBP prices and inventory are required" }, { status: 400 });
     }
-    const allowedImageTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
-    if (!cloudinaryPublicId && (!(image instanceof File) || !allowedImageTypes.has(image.type) || image.size > 4 * 1024 * 1024)) {
+    if (!cloudinaryPublicId && (!(image instanceof File) || !allowedImageTypes.has(image.type) || image.size > maxProductImageBytes)) {
       return Response.json({ error: "Choose a JPG, PNG, WebP or AVIF image under 4MB. The image editor compresses large photos automatically." }, { status: 400 });
     }
     if (cloudinaryPublicId && !cloudinaryPublicId.startsWith("afro-fashionstyle/products/")) {
@@ -68,9 +70,18 @@ export async function POST(request: Request) {
     });
     let uploaded: { asset_id: string; public_id: string; secure_url: string; width: number; height: number };
     if (cloudinaryPublicId) {
-      const resource = await cloudinary.api.resource(cloudinaryPublicId, { resource_type: "image" });
-      if (!resource?.asset_id || !resource.public_id || !resource.secure_url || !resource.width || !resource.height) throw new Error("Cloudinary returned an incomplete verified image");
-      uploaded = { asset_id: resource.asset_id, public_id: resource.public_id, secure_url: resource.secure_url, width: resource.width, height: resource.height };
+      try {
+        const resource = await cloudinary.api.resource(cloudinaryPublicId, { resource_type: "image" });
+        const validResource = resource?.asset_id && resource.public_id === cloudinaryPublicId && resource.secure_url
+          && resource.resource_type === "image" && allowedCloudinaryFormats.has(String(resource.format || "").toLowerCase())
+          && Number(resource.bytes) > 0 && Number(resource.bytes) <= maxProductImageBytes
+          && Number(resource.width) > 0 && Number(resource.height) > 0;
+        if (!validResource) throw new Error("Cloudinary returned an invalid product image");
+        uploaded = { asset_id: resource.asset_id, public_id: resource.public_id, secure_url: resource.secure_url, width: resource.width, height: resource.height };
+      } catch (error) {
+        await cloudinary.uploader.destroy(cloudinaryPublicId, { invalidate: true }).catch(() => undefined);
+        throw error;
+      }
     } else {
       const bytes = Buffer.from(await (image as File).arrayBuffer());
       uploaded = await new Promise((resolve, reject) => {
@@ -98,7 +109,7 @@ export async function POST(request: Request) {
       status: "active",
     }).select().single();
     if (productError) {
-      await cloudinary.uploader.destroy(uploaded.public_id).catch(() => undefined);
+      await cloudinary.uploader.destroy(uploaded.public_id, { invalidate: true }).catch(() => undefined);
       throw productError;
     }
     const { error: imageError } = await supabase.from("product_images").insert({
@@ -112,7 +123,7 @@ export async function POST(request: Request) {
     });
     if (imageError) {
       await supabase.from("products").delete().eq("id", product.id);
-      await cloudinary.uploader.destroy(uploaded.public_id).catch(() => undefined);
+      await cloudinary.uploader.destroy(uploaded.public_id, { invalidate: true }).catch(() => undefined);
       throw imageError;
     }
     if (sizes.length) {
@@ -124,7 +135,7 @@ export async function POST(request: Request) {
       })));
       if (variantError) {
         await supabase.from("products").delete().eq("id", product.id);
-        await cloudinary.uploader.destroy(uploaded.public_id).catch(() => undefined);
+        await cloudinary.uploader.destroy(uploaded.public_id, { invalidate: true }).catch(() => undefined);
         throw variantError;
       }
     }

@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from "react";
 
 type Props = { onReady: (file: File | null) => void };
 
+const allowedImageTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
+const maxSourceBytes = 12 * 1024 * 1024;
+
 export function ProductImageEditor({ onReady }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
@@ -45,8 +48,11 @@ export function ProductImageEditor({ onReady }: Props) {
   function choose(file?: File) {
     setError("");
     if (!file) { setSourceUrl(""); onReady(null); return; }
-    if (!["image/jpeg", "image/png", "image/webp", "image/avif"].includes(file.type)) { setSourceUrl(""); onReady(null); setError("Choose a JPG, PNG, WebP or AVIF photograph."); return; }
-    onReady(file);
+    if (!allowedImageTypes.has(file.type)) { setSourceUrl(""); onReady(null); setError("Choose a JPG, PNG, WebP or AVIF photograph."); return; }
+    if (file.size > maxSourceBytes) { setSourceUrl(""); onReady(null); setError("Choose an image smaller than 12 MB. Export very large photographs as JPG or WebP first."); return; }
+    // Small originals remain a safe fallback while the optimized preview is prepared.
+    // Larger originals wait for canvas compression so they never hit the upload limit.
+    onReady(file.size <= 4 * 1024 * 1024 ? file : null);
     if (sourceUrl) URL.revokeObjectURL(sourceUrl);
     const url = URL.createObjectURL(file);
     setSourceUrl(url);
@@ -54,7 +60,7 @@ export function ProductImageEditor({ onReady }: Props) {
     setRotation(0);
     const image = new window.Image();
     image.onload = () => { imageRef.current = image; render(image, 1, 0); };
-    image.onerror = () => { setProcessing(false); setError("This photograph could not be opened. Export it as JPG or PNG and try again."); };
+    image.onerror = () => { setProcessing(false); onReady(null); setError("This photograph could not be opened. Export it as JPG or PNG and try again."); };
     image.src = url;
   }
 
