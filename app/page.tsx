@@ -28,7 +28,7 @@ export default function Home() {
   return <main>
     <PremiumHeader/>
     <section className="hero" id="new">
-      <Image src="/campaign-hero.png" alt="Three women in modern Nigerian-inspired occasion wear" fill priority sizes="100vw"/>
+      <Image src="/campaign-hero.webp" alt="Three women in modern Nigerian-inspired occasion wear" fill priority sizes="100vw"/>
       <div className="hero-copy"><span className="eyebrow">Made on request in Lagos</span><h1>Nigerian dress,<br/><em>made yours.</em></h1><p>Dresses, two-piece sets and lace outfits made for your measurements and delivered to the USA and UK.</p><div className="hero-ctas"><Link className="button primary" href="/shop">Shop the collection</Link><a className="text-link" href="#story">How our pieces are made →</a></div></div>
       <div className="hero-note">Made in small editions<br/>in Lagos &amp; the USA</div>
     </section>
