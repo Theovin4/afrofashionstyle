@@ -178,3 +178,22 @@ test("checkout and customer forms use the premium secure form system", async () 
   assert.match(css, /html\[data-theme="dark"\] \.commerce-header\{background:#17100e/);
   assert.match(css, /\.commerce-header \.brand-logo-artwork\{background:#fffdf9/);
 });
+
+test("checkout provides verified address selectors and resilient Flutterwave startup", async () => {
+  const [checkout, locations, flutterwave, orders] = await Promise.all([
+    read("app/checkout/page.tsx"),
+    read("app/api/locations/route.ts"),
+    read("app/api/flutterwave/checkout/route.ts"),
+    read("app/lib/orders.ts"),
+  ]);
+  assert.match(checkout, /State \/ region<select/);
+  assert.match(checkout, /City<select/);
+  assert.match(checkout, /postalCodes\.length > 1/);
+  assert.match(locations, /countriesnow\.space/);
+  assert.match(locations, /api\.zippopotam\.us/);
+  assert.match(locations, /enforceRateLimit/);
+  assert.match(flutterwave, /FLUTTERWAVE_SECRET_KEY\?\.trim\(\)/);
+  assert.match(flutterwave, /await response\.text\(\)/);
+  assert.match(flutterwave, /payment_status: "failed"/);
+  assert.match(orders, /state: input\.customer\.state\.trim\(\)/);
+});

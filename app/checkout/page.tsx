@@ -7,7 +7,7 @@ import { attributionData, hasMarketingConsent, trackMetaWithUser } from "../comp
 import { BrandLogo } from "../components/brand-logo";
 
 type Product = { id: string; name: string; category: string; price_usd: number; price_gbp: number; stock: number };
-type Customer = { email: string; phone: string; firstName: string; lastName: string; address: string; city: string; zip: string; country: "US" | "GB" };
+type Customer = { email: string; phone: string; firstName: string; lastName: string; address: string; state: string; city: string; zip: string; country: "US" | "GB" };
 
 function CheckoutContent() {
   const params = useSearchParams();
@@ -24,6 +24,16 @@ function CheckoutContent() {
   const [discountTotal, setDiscountTotal] = useState(0);
   const [shippingRules, setShippingRules] = useState<Array<{ country: string; currency: string; rate: number; free_over: number | null; second_item_rate: number | null; additional_item_rate: number | null }>>([]);
   const [usdToGbp, setUsdToGbp] = useState(.751);
+  const [deliveryCountry, setDeliveryCountry] = useState<"US" | "GB">("US");
+  const [deliveryState, setDeliveryState] = useState("");
+  const [deliveryStateCode, setDeliveryStateCode] = useState("");
+  const [deliveryCity, setDeliveryCity] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [states, setStates] = useState<Array<{ name: string; code: string }>>([]);
+  const [cities, setCities] = useState<string[]>([]);
+  const [postalCodes, setPostalCodes] = useState<string[]>([]);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState("");
 
   useEffect(() => {
     void fetch("/api/products").then((response) => response.json()).then((result: { products?: Product[] }) => {
@@ -34,6 +44,41 @@ function CheckoutContent() {
   useEffect(() => {
     void fetch("/api/commerce-config").then((response) => response.json()).then((result: { shipping?: typeof shippingRules; settings?: { currency?: { usd_to_gbp?: number } } }) => { setShippingRules(result.shipping || []); setUsdToGbp(Number(result.settings?.currency?.usd_to_gbp || .751)); }).catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setLocationLoading(true); setLocationError(""); setDeliveryState(""); setDeliveryStateCode(""); setDeliveryCity(""); setPostalCode(""); setCities([]); setPostalCodes([]);
+    void fetch(`/api/locations?country=${deliveryCountry}`, { signal: controller.signal }).then(async (response) => {
+      const result = await response.json() as { states?: Array<{ name: string; code: string }>; error?: string };
+      if (!response.ok) throw new Error(result.error);
+      setStates(result.states || []);
+    }).catch((error) => { if (error instanceof Error && error.name !== "AbortError") setLocationError(error.message); }).finally(() => setLocationLoading(false));
+    return () => controller.abort();
+  }, [deliveryCountry]);
+
+  useEffect(() => {
+    if (!deliveryState) return;
+    const controller = new AbortController();
+    setLocationLoading(true); setLocationError(""); setDeliveryCity(""); setPostalCode(""); setPostalCodes([]);
+    void fetch(`/api/locations?country=${deliveryCountry}&state=${encodeURIComponent(deliveryState)}`, { signal: controller.signal }).then(async (response) => {
+      const result = await response.json() as { cities?: string[]; error?: string };
+      if (!response.ok) throw new Error(result.error);
+      setCities(result.cities || []);
+    }).catch((error) => { if (error instanceof Error && error.name !== "AbortError") setLocationError(error.message); }).finally(() => setLocationLoading(false));
+    return () => controller.abort();
+  }, [deliveryCountry, deliveryState]);
+
+  useEffect(() => {
+    if (!deliveryState || !deliveryCity) return;
+    const controller = new AbortController();
+    setLocationLoading(true); setLocationError(""); setPostalCode("");
+    void fetch(`/api/locations?country=${deliveryCountry}&state=${encodeURIComponent(deliveryState)}&stateCode=${encodeURIComponent(deliveryStateCode)}&city=${encodeURIComponent(deliveryCity)}`, { signal: controller.signal }).then(async (response) => {
+      const result = await response.json() as { postalCodes?: string[]; error?: string };
+      if (!response.ok) throw new Error(result.error);
+      setPostalCodes(result.postalCodes || []); setPostalCode(result.postalCodes?.[0] || "");
+    }).catch((error) => { if (error instanceof Error && error.name !== "AbortError") setLocationError(error.message); }).finally(() => setLocationLoading(false));
+    return () => controller.abort();
+  }, [deliveryCountry, deliveryState, deliveryStateCode, deliveryCity]);
 
   const total = itemIds.reduce((sum, id) => {
     const product = products.find((item) => item.id === id);
@@ -85,7 +130,7 @@ function CheckoutContent() {
           const details: Customer = {
             email: String(fields.get("email") || ""), phone: String(fields.get("phone") || ""),
             firstName: String(fields.get("firstName") || ""), lastName: String(fields.get("lastName") || ""),
-            address: String(fields.get("address") || ""), city: String(fields.get("city") || ""),
+            address: String(fields.get("address") || ""), state: String(fields.get("state") || ""), city: String(fields.get("city") || ""),
             zip: String(fields.get("zip") || ""), country: fields.get("country") === "GB" ? "GB" : "US",
           };
           setCustomer(details);
@@ -105,8 +150,11 @@ function CheckoutContent() {
           <label>Email<input name="email" type="email" autoComplete="email" required/></label>
           <label>Phone<input name="phone" type="tel" autoComplete="tel" required/></label>
           <label>Address<input name="address" autoComplete="street-address" required/></label>
-          <div className="form-split"><label>City<input name="city" autoComplete="address-level2" required/></label><label>ZIP / Postcode<input name="zip" autoComplete="postal-code" required/></label></div>
-          <label>Country<select name="country" autoComplete="country"><option value="US">United States</option><option value="GB">United Kingdom</option></select></label>
+          <label>Country<select name="country" autoComplete="country" value={deliveryCountry} onChange={(event) => setDeliveryCountry(event.target.value === "GB" ? "GB" : "US")}><option value="US">United States</option><option value="GB">United Kingdom</option></select></label>
+          <label>State / region<select name="state" autoComplete="address-level1" value={deliveryState} onChange={(event) => { const selected = states.find((state) => state.name === event.target.value); setDeliveryState(selected?.name || ""); setDeliveryStateCode(selected?.code || ""); }} required disabled={locationLoading && !states.length}><option value="">{locationLoading && !states.length ? "Loading regions…" : "Select a state or region"}</option>{states.map((state) => <option key={`${state.name}-${state.code}`} value={state.name}>{state.name}</option>)}</select></label>
+          <div className="form-split"><label>City<select name="city" autoComplete="address-level2" value={deliveryCity} onChange={(event) => setDeliveryCity(event.target.value)} required disabled={!deliveryState || (locationLoading && !cities.length)}><option value="">{deliveryState ? "Select a city" : "Select a region first"}</option>{cities.map((city) => <option key={city} value={city}>{city}</option>)}</select></label><label>ZIP / Postcode{postalCodes.length > 1 ? <select name="zip" autoComplete="postal-code" value={postalCode} onChange={(event) => setPostalCode(event.target.value)} required><option value="">Select postal code</option>{postalCodes.map((code) => <option key={code} value={code}>{code}</option>)}</select> : <input name="zip" autoComplete="postal-code" value={postalCode} onChange={(event) => setPostalCode(event.target.value)} placeholder={deliveryCity && locationLoading ? "Finding code…" : "Postal code"} required/>}</label></div>
+          {deliveryCity && <small className="field-help">Confirm the postal code matches your street address before continuing.</small>}
+          {locationError && <p className="payment-error" role="alert">{locationError}</p>}
           <label className="consent-check"><input name="cartReminder" type="checkbox" value="yes"/> Email me one reminder after 24 hours if I leave without completing this order. I can ignore the message and will not receive repeated cart emails.</label>
           <button className="checkout-submit">Continue to payment →</button>
         </form> : <div className="payment-choice">

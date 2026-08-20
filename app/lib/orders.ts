@@ -8,6 +8,7 @@ export type CheckoutCustomer = {
   firstName: string;
   lastName: string;
   address: string;
+  state: string;
   city: string;
   zip: string;
   country: "US" | "GB";
@@ -33,6 +34,7 @@ function validCustomer(customer: CheckoutCustomer) {
     customer.firstName.trim().length > 0 &&
     customer.lastName.trim().length > 0 &&
     customer.address.trim().length > 4 &&
+    customer.state.trim().length > 1 &&
     customer.city.trim().length > 1 &&
     customer.zip.trim().length > 1 &&
     (customer.country === "US" || customer.country === "GB");
@@ -109,6 +111,7 @@ export async function createPendingOrder(
     phone: input.customer.phone.trim(),
     shipping_address: {
       line1: input.customer.address.trim(),
+      state: input.customer.state.trim(),
       city: input.customer.city.trim(),
       postal_code: input.customer.zip.trim(),
       country: input.customer.country,
