@@ -10,7 +10,8 @@ import { showActionToast } from "../components/action-toast";
 
 type Product = { id: string; name: string; category: string; price: number; stock: number; status: string; imageUrl?: string; description?: string };
 type ApiProduct = { id: string; name: string; category: string; price_usd: number; stock: number; status: string; description?: string; product_images?: Array<{ secure_url: string }> };
-type Order = { id: string; order_number: string; customer_name: string; customer_email: string; currency: string; total: number; payment_status: string; fulfillment_status: string; tracking_number?: string; tracking_url?: string; carrier?: string; created_at: string; order_items?: Array<{ product_name: string; quantity: number; selected_size?: string }> };
+type CryptoPayment = { id: string; network: string; amount_sent: string; transaction_reference: string; review_status: string; review_note?: string; submitted_at: string };
+type Order = { id: string; order_number: string; customer_name: string; customer_email: string; currency: string; total: number; payment_gateway: string; payment_status: string; fulfillment_status: string; tracking_number?: string; tracking_url?: string; carrier?: string; created_at: string; order_items?: Array<{ product_name: string; quantity: number; selected_size?: string }>; crypto_payments?: CryptoPayment[] };
 type Operations = {
   discounts: Array<{ id: string; code: string; kind: string; value: number; active: boolean; uses: number }>;
   shipping: Array<{ id: string; country: string; currency: string; name: string; rate: number; free_over: number | null; delivery_min_days: number; delivery_max_days: number }>;
@@ -172,6 +173,17 @@ export default function AdminPage() {
     setNotice(`${order.order_number} updated.`);
   }
 
+  async function reviewCrypto(order: Order, cryptoDecision: "approved" | "rejected") {
+    const verb = cryptoDecision === "approved" ? "approve" : "reject";
+    if (!window.confirm(`${verb[0].toUpperCase()}${verb.slice(1)} crypto payment for ${order.order_number}?`)) return;
+    const reviewNote = window.prompt("Optional internal review note", "") || "";
+    const response = await fetch("/api/admin/orders", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: order.id, cryptoDecision, reviewNote }) });
+    const result = await response.json() as { order?: Partial<Order>; error?: string };
+    if (!response.ok || !result.order) { setNotice(result.error || "Crypto payment review failed."); return; }
+    setOrders((all) => all.map((item) => item.id === order.id ? { ...item, ...result.order, crypto_payments: item.crypto_payments?.map((payment) => ({ ...payment, review_status: cryptoDecision, review_note: reviewNote })) } : item));
+    setNotice(`${order.order_number} crypto payment ${cryptoDecision}.`);
+  }
+
   async function addProduct(formData: FormData) {
     setPublishing(true);
     setNotice("Preparing secure image upload…");
@@ -275,8 +287,9 @@ export default function AdminPage() {
           {filteredOrders.map((order) => <div className="order-row" key={order.id}>
             <span><b>{order.order_number}</b><small>{new Date(order.created_at).toLocaleDateString()}</small></span>
             <span><b>{order.customer_name}</b><small>{order.order_items?.map((item) => `${item.product_name} × ${item.quantity}${item.selected_size ? ` (${item.selected_size})` : ""}`).join(", ")}</small></span>
-            <span>{order.currency} {Number(order.total).toFixed(2)}</span><span><em>{order.payment_status}</em></span>
+            <span>{order.currency} {Number(order.total).toFixed(2)}</span><span><em>{order.payment_status}</em><small>{order.payment_gateway}</small></span>
             <span><select value={order.fulfillment_status} onChange={(event) => void updateOrder(order, event.target.value)}><option value="unfulfilled">Unfulfilled</option><option value="processing">Processing</option><option value="shipped">Shipped</option><option value="delivered">Delivered</option><option value="cancelled">Cancelled</option></select>{order.tracking_number && <small>{order.carrier}: {order.tracking_number}</small>}</span>
+            {order.crypto_payments?.map((payment) => <div className="crypto-review" key={payment.id}><div><b>Crypto proof · {payment.network.replaceAll("_", " ").toUpperCase()}</b><small>Sent: {payment.amount_sent} · Reference: {payment.transaction_reference}</small></div><a href={`/api/admin/crypto-proof?id=${payment.id}`} target="_blank" rel="noreferrer">View proof</a>{payment.review_status === "submitted" ? <div><button onClick={() => void reviewCrypto(order, "approved")}>Confirm payment</button><button className="danger" onClick={() => void reviewCrypto(order, "rejected")}>Reject</button></div> : <em>{payment.review_status}</em>}</div>)}
           </div>)}
           {!filteredOrders.length && <p className="admin-empty">No orders match these filters.</p>}
         </div>

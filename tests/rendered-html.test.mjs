@@ -197,3 +197,27 @@ test("checkout provides verified address selectors and resilient Flutterwave sta
   assert.match(flutterwave, /payment_status: "failed"/);
   assert.match(orders, /state: input\.customer\.state\.trim\(\)/);
 });
+
+test("crypto checkout is manual, proof-gated and administrator reviewed", async () => {
+  const [checkout, crypto, adminOrders, proof, migration, privacy] = await Promise.all([
+    read("app/checkout/page.tsx"),
+    read("app/api/crypto/checkout/route.ts"),
+    read("app/api/admin/orders/route.ts"),
+    read("app/api/admin/crypto-proof/route.ts"),
+    read("supabase/migrations/20260820233000_add_crypto_payment_review.sql"),
+    read("app/privacy/page.tsx"),
+  ]);
+  assert.match(checkout, /USDT · TRON \(TRC20\)/);
+  assert.match(checkout, /Submit proof and confirm on WhatsApp/);
+  assert.match(crypto, /allowedProofTypes/);
+  assert.match(crypto, /type: "authenticated"/);
+  assert.match(crypto, /addresses\[network\]/);
+  assert.match(crypto, /enforceRateLimit/);
+  assert.match(adminOrders, /cryptoDecision/);
+  assert.match(adminOrders, /completeOrder/);
+  assert.match(proof, /await isAdmin/);
+  assert.match(proof, /sign_url: true/);
+  assert.match(migration, /enable row level security/);
+  assert.match(migration, /revoke all.*anon, authenticated/);
+  assert.match(privacy, /Never upload a wallet password/);
+});

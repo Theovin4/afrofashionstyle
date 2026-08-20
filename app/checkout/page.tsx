@@ -2,16 +2,17 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
 import { attributionData, hasMarketingConsent, trackMetaWithUser } from "../components/meta-pixel";
 import { BrandLogo } from "../components/brand-logo";
+import { showActionToast } from "../components/action-toast";
 
 type Product = { id: string; name: string; category: string; price_usd: number; price_gbp: number; stock: number };
 type Customer = { email: string; phone: string; firstName: string; lastName: string; address: string; state: string; city: string; zip: string; country: "US" | "GB" };
 
 function CheckoutContent() {
   const params = useSearchParams();
-  const [gateway, setGateway] = useState<"PayPal" | "Flutterwave">(params.get("gateway") === "paypal" ? "PayPal" : "Flutterwave");
+  const [gateway, setGateway] = useState<"PayPal" | "Flutterwave" | "Crypto">(params.get("gateway") === "paypal" ? "PayPal" : "Flutterwave");
   const currency = params.get("currency") === "GBP" ? "GBP" : "USD";
   const itemIds = useMemo(() => (params.get("items") || "").split(",").filter((id) => /^[0-9a-f-]{36}$/i.test(id)).slice(0, 20), [params]);
   const sizes = useMemo(() => (params.get("sizes") || "").split(",").map(decodeURIComponent).slice(0, itemIds.length), [params, itemIds.length]);
@@ -34,6 +35,13 @@ function CheckoutContent() {
   const [postalCodes, setPostalCodes] = useState<string[]>([]);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState("");
+  const [cryptoNetwork, setCryptoNetwork] = useState<"usdt_trc20" | "usdt_bep20" | "usdt_sol" | "btc">("usdt_trc20");
+  const cryptoAddresses = {
+    usdt_trc20: "TScypKhj7VmE9CrXAFn2EAKLcBG9qjwYoL",
+    usdt_bep20: "0xebc426c64ee3434d5e824e926b627039a21b48a1",
+    usdt_sol: "3jgQ5Grn9awRoq1tux6zamrKaw91jQCgSRH6puE1Fokj",
+    btc: "17Z41xvrwHRJtNNtFv1apomwHn6yAjKFnQ",
+  };
 
   useEffect(() => {
     void fetch("/api/products").then((response) => response.json()).then((result: { products?: Product[] }) => {
@@ -117,6 +125,25 @@ function CheckoutContent() {
     }
   }
 
+  async function submitCryptoPayment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!customer || !itemIds.length) return;
+    setIsPaying(true); setPaymentError("");
+    try {
+      const fields = new FormData(event.currentTarget);
+      fields.set("network", cryptoNetwork);
+      fields.set("checkout", JSON.stringify({ items: itemIds, sizes, currency, customer, discountCode: discountCode || undefined, meta: { consent: hasMarketingConsent(), ...attributionData() } }));
+      const response = await fetch("/api/crypto/checkout", { method: "POST", body: fields });
+      const result = await response.json() as { orderNumber?: string; whatsappUrl?: string; error?: string };
+      if (!response.ok || !result.whatsappUrl) throw new Error(result.error || "Payment proof could not be submitted.");
+      showActionToast(`Proof submitted for ${result.orderNumber}. Opening WhatsApp for confirmation.`, "success");
+      window.location.assign(result.whatsappUrl);
+    } catch (error) {
+      setPaymentError(error instanceof Error ? error.message : "Payment proof could not be submitted.");
+      setIsPaying(false);
+    }
+  }
+
   if (!itemIds.length) return <main className="status-page"><div className="status-card"><h1>Your bag is empty.</h1><Link className="button primary" href="/#shop">Shop the collection</Link></div></main>;
 
   return <main className="commerce-page">
@@ -159,10 +186,21 @@ function CheckoutContent() {
           <button className="checkout-submit">Continue to payment →</button>
         </form> : <div className="payment-choice">
           <h2>Choose your secure payment</h2>
-          <div className="gateway-selector"><button type="button" aria-pressed={gateway === "Flutterwave"} className={gateway === "Flutterwave" ? "active" : ""} onClick={() => setGateway("Flutterwave")}><b>Flutterwave</b><span>Cards and local payment options</span></button><button type="button" aria-pressed={gateway === "PayPal"} className={gateway === "PayPal" ? "active" : ""} onClick={() => setGateway("PayPal")}><b>PayPal</b><span>PayPal balance or linked card</span></button></div>
-          <p>You’ll continue to {gateway} to authorize your payment. Your order is confirmed only after server verification.</p>
-          <div className="secure-box"><b>{gateway}</b><span>Encrypted · Buyer protected · Verified confirmation</span></div>
-          <button className="checkout-submit" onClick={startPayment} disabled={isPaying}>{isPaying ? `Opening ${gateway}…` : `Pay ${currency} ${grandTotal.toFixed(2)} with ${gateway} →`}</button>
+          <div className="gateway-selector"><button type="button" aria-pressed={gateway === "Flutterwave"} className={gateway === "Flutterwave" ? "active" : ""} onClick={() => setGateway("Flutterwave")}><b>Flutterwave</b><span>Cards and local payment options</span></button><button type="button" aria-pressed={gateway === "PayPal"} className={gateway === "PayPal" ? "active" : ""} onClick={() => setGateway("PayPal")}><b>PayPal</b><span>PayPal balance or linked card</span></button><button type="button" aria-pressed={gateway === "Crypto"} className={gateway === "Crypto" ? "active" : ""} onClick={() => setGateway("Crypto")}><b>Crypto</b><span>USDT or Bitcoin · Manual confirmation</span></button></div>
+          {gateway === "Crypto" ? <form className="crypto-payment-form" onSubmit={submitCryptoPayment}>
+            <div className="manual-payment-notice"><b>Manual payment review</b><span>Your order is confirmed after our team verifies the transaction. Never send funds on a different network.</span></div>
+            <label>Asset and network<select value={cryptoNetwork} onChange={(event) => setCryptoNetwork(event.target.value as typeof cryptoNetwork)}><option value="usdt_trc20">USDT · TRON (TRC20)</option><option value="usdt_bep20">USDT · BNB Smart Chain (BEP20)</option><option value="usdt_sol">USDT · Solana</option><option value="btc">Bitcoin · BTC network</option></select></label>
+            <div className="crypto-address"><span>Deposit address</span><code>{cryptoAddresses[cryptoNetwork]}</code><button type="button" onClick={async () => { await navigator.clipboard.writeText(cryptoAddresses[cryptoNetwork]); showActionToast("Deposit address copied.", "success"); }}>Copy address</button></div>
+            <p className="crypto-total">Order total <strong>{currency} {grandTotal.toFixed(2)}</strong><small>Confirm the live crypto equivalent in your wallet or exchange before sending.</small></p>
+            <label>Amount and asset sent<input name="amountSent" placeholder="Example: 100 USDT" autoComplete="off" required/></label>
+            <label>Transaction hash / reference<input name="transactionReference" placeholder="Paste the blockchain transaction reference" autoComplete="off" required/></label>
+            <label>Proof of payment<input name="proof" type="file" accept="image/jpeg,image/png,image/webp" required/><small>JPG, PNG or WebP · maximum 5MB. Do not upload wallet passwords or recovery phrases.</small></label>
+            <button className="checkout-submit" disabled={isPaying}>{isPaying ? "Submitting proof…" : "Submit proof and confirm on WhatsApp →"}</button>
+          </form> : <>
+            <p>You’ll continue to {gateway} to authorize your payment. Your order is confirmed only after server verification.</p>
+            <div className="secure-box"><b>{gateway}</b><span>Encrypted · Buyer protected · Verified confirmation</span></div>
+            <button className="checkout-submit" onClick={startPayment} disabled={isPaying}>{isPaying ? `Opening ${gateway}…` : `Pay ${currency} ${grandTotal.toFixed(2)} with ${gateway} →`}</button>
+          </>}
           {paymentError && <p className="payment-error" role="alert">{paymentError}</p>}
           <button className="change-payment" onClick={() => setStep(1)}>← Edit delivery details</button>
         </div>}

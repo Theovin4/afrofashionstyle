@@ -42,7 +42,7 @@ function validCustomer(customer: CheckoutCustomer) {
 
 export async function createPendingOrder(
   input: CheckoutRequest,
-  gateway: "paypal" | "flutterwave",
+  gateway: "paypal" | "flutterwave" | "crypto",
   requestContext?: { clientIp?: string; userAgent?: string; sourceUrl?: string },
 ) {
   if (!Array.isArray(input.items) || input.items.length < 1 || input.items.length > 20 || !["USD", "GBP"].includes(input.currency) || !validCustomer(input.customer)) {
