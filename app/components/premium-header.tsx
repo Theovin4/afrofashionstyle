@@ -7,7 +7,7 @@ import { BrandLogo } from "./brand-logo";
 export function PremiumHeader() {
   const { count, currency, setCurrency, setOpen } = useCart();
   return <>
-    <div className="announcement">Made on request in 5–7 working days · Fly Logistics tracked doorstep delivery</div>
+    <div className="announcement">Made to order in Lagos · 5–7 working days · Tracked USA &amp; UK delivery</div>
     <header className="site-header">
       <BrandLogo priority/>
       <nav aria-label="Main navigation"><Link href="/shop">New In</Link><Link href="/shop">Shop</Link><Link href="/#story">Our Story</Link><Link href="/journal">Journal</Link></nav>

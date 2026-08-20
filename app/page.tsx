@@ -29,14 +29,14 @@ export default function Home() {
     <PremiumHeader/>
     <section className="hero" id="new">
       <Image src="/campaign-hero.webp" alt="Three women in modern Nigerian-inspired occasion wear" fill priority sizes="100vw"/>
-      <div className="hero-copy"><span className="eyebrow">Made on request in Lagos</span><h1>Nigerian dress,<br/><em>made yours.</em></h1><p>Dresses, two-piece sets and lace outfits made for your measurements and delivered to the USA and UK.</p><div className="hero-ctas"><Link className="button primary" href="/shop">Shop the collection</Link><a className="text-link" href="#story">How our pieces are made →</a></div></div>
+      <div className="hero-copy"><span className="eyebrow">Made to order in Lagos · Delivered to the USA &amp; UK</span><h1>Nigerian elegance,<br/><em>made for you.</em></h1><p>Discover statement dresses, polished two-piece sets and lace occasionwear, crafted to your measurements and delivered with tracking.</p><div className="hero-ctas"><Link className="button primary" href="/shop">Shop the collection</Link><a className="text-link" href="#story">Discover our craftsmanship →</a></div></div>
       <div className="hero-note">Made in small editions<br/>in Lagos &amp; the USA</div>
     </section>
 
     <section className="values" aria-label="Our promises">
-      <div><b>01</b><span><strong>Made on request</strong>Production takes 5–7 working days.</span></div>
-      <div><b>02</b><span><strong>Nigerian textiles</strong>Ankara, Adire and lace designs.</span></div>
-      <div><b>03</b><span><strong>Global delivery</strong>Tracked USA &amp; UK shipping.</span></div>
+      <div><b>01</b><span><strong>Made for you</strong>Crafted to order in 5–7 working days.</span></div>
+      <div><b>02</b><span><strong>Nigerian craftsmanship</strong>Distinctive Ankara, Adire and lace.</span></div>
+      <div><b>03</b><span><strong>Tracked delivery</strong>Secure doorstep delivery across the USA and UK.</span></div>
     </section>
 
     <section className="collection" id="shop">
@@ -46,7 +46,7 @@ export default function Home() {
 
     <section className="category-directory" aria-labelledby="category-title"><div className="section-heading"><div><span className="eyebrow">Shop by design</span><h2 id="category-title">Five ways to wear Afro.</h2></div></div><div>{CATEGORY_DETAILS.map((category, index) => <Link href={`/collections/${category.slug}`} key={category.slug}><span>0{index + 1}</span><strong>{category.name}</strong><small>Explore the collection →</small></Link>)}</div></section>
 
-    <section className="story" id="story"><div className="story-pattern"><span>ÀṢÀ</span></div><div className="story-copy"><span className="eyebrow">Designed and made in Lagos</span><h2>Nigerian textiles,<br/>modern silhouettes.</h2><p>Afro.Fashionstyle makes women’s dresses, two-piece sets and lace outfits in Lagos. Each outfit is produced after ordering and can be prepared using the customer’s measurements.</p><a className="button light" href="#journal">Read the journal</a></div></section>
+    <section className="story" id="story"><div className="story-pattern"><span>ÀṢÀ</span></div><div className="story-copy"><span className="eyebrow">Designed and made in Lagos</span><h2>Heritage textiles,<br/>modern confidence.</h2><p>Afro.Fashionstyle transforms Nigerian Ankara, Adire and lace into refined womenswear for celebrations and standout everyday moments. Every piece is made after you order, with your measurements welcomed for a more personal fit.</p><a className="button light" href="#journal">Explore the journal</a></div></section>
 
     <section className="editorial" id="journal"><span className="eyebrow">The journal</span><h2>Notes on style, culture &amp; craft</h2><div className="editorial-grid"><article><b>01</b><h3>How to style Ankara for a modern occasion</h3><Link href="/journal">Read our styling journal →</Link></article><article><b>02</b><h3>The living language of Adire</h3><Link href="/journal">Discover the story →</Link></article><article><b>03</b><h3>Your guide to finding the perfect fit</h3><Link href="/size-guide">View size guide →</Link></article></div></section>
 

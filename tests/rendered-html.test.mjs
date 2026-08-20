@@ -148,3 +148,14 @@ test("secure direct Cloudinary uploads are permitted by the site policy", async 
   assert.match(adminStudio, /https:\/\/api\.cloudinary\.com\/v1_1/);
   assert.match(adminStudio, /cloudinaryPublicId/);
 });
+
+test("storefront sales copy and administrator actions remain launch-visible", async () => {
+  const [home, css] = await Promise.all([
+    read("app/page.tsx"),
+    read("app/globals.css"),
+  ]);
+  assert.match(home, /Nigerian elegance/);
+  assert.match(home, /crafted to your measurements and delivered with tracking/);
+  assert.match(css, /\.admin-shell \.admin-header-actions>button\{[^}]+color:#1b0d08!important/);
+  assert.match(css, /\.admin-shell \.admin-signout button\{[^}]+color:#ffe7e3!important/);
+});
