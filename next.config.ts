@@ -10,7 +10,7 @@ const contentSecurityPolicy = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com data:",
   "img-src 'self' data: blob: https://res.cloudinary.com https://www.facebook.com https://*.google.com https://*.googleusercontent.com https://*.googlesyndication.com https://*.doubleclick.net",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.google-analytics.com https://*.google-analytics.com https://*.googlesyndication.com https://*.doubleclick.net https://www.facebook.com https://graph.facebook.com https://challenges.cloudflare.com",
+  "connect-src 'self' https://api.cloudinary.com https://*.supabase.co wss://*.supabase.co https://www.google-analytics.com https://*.google-analytics.com https://*.googlesyndication.com https://*.doubleclick.net https://www.facebook.com https://graph.facebook.com https://challenges.cloudflare.com",
   "frame-src https://challenges.cloudflare.com https://*.google.com https://*.googlesyndication.com https://*.doubleclick.net https://www.paypal.com https://*.paypal.com",
   "upgrade-insecure-requests",
 ].join("; ");

@@ -127,6 +127,7 @@ test("administrator login is fixed-account, rate-limited, MFA-safe and recoverab
   assert.match(loginPage, /Forgot your password/);
   const adminStudio = await read("app/admin/page.tsx");
   assert.match(adminStudio, /href="\/admin-reset">Change password/);
+  assert.match(adminStudio, /className="admin-signout" action="\/api\/admin\/logout" method="post"/);
   assert.match(recovery, /admin-password-reset", 3, 60 \* 60/);
   assert.match(recovery, /resetPasswordForEmail/);
   assert.match(callback, /exchangeCodeForSession/);
@@ -136,4 +137,14 @@ test("administrator login is fixed-account, rate-limited, MFA-safe and recoverab
   assert.match(reset, /Passwords match/);
   assert.match(reset, /Show password/);
   assert.match(reset, /signOut\(\{ scope: "local" \}\)/);
+});
+
+test("secure direct Cloudinary uploads are permitted by the site policy", async () => {
+  const [config, adminStudio] = await Promise.all([
+    read("next.config.ts"),
+    read("app/admin/page.tsx"),
+  ]);
+  assert.match(config, /connect-src[^\n]+https:\/\/api\.cloudinary\.com/);
+  assert.match(adminStudio, /https:\/\/api\.cloudinary\.com\/v1_1/);
+  assert.match(adminStudio, /cloudinaryPublicId/);
 });

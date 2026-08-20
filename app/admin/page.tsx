@@ -175,6 +175,7 @@ export default function AdminPage() {
   async function addProduct(formData: FormData) {
     setPublishing(true);
     setNotice("Preparing secure image upload…");
+    let uploadStage: "signature" | "media" | "catalog" = "signature";
     try {
       const image = formData.get("image");
       if (!(image instanceof File)) throw new Error("Choose a product image before publishing.");
@@ -184,6 +185,7 @@ export default function AdminPage() {
         throw new Error(signature.error || "Secure image upload could not start.");
       }
       setNotice("Uploading optimized product image…");
+      uploadStage = "media";
       const cloudinaryForm = new FormData();
       cloudinaryForm.set("file", image);
       cloudinaryForm.set("api_key", signature.apiKey);
@@ -198,6 +200,7 @@ export default function AdminPage() {
       formData.delete("sourceImage");
       formData.set("cloudinaryPublicId", media.public_id);
       setNotice("Saving product and inventory…");
+      uploadStage = "catalog";
       const response = await fetch("/api/products", { method: "POST", body: formData });
       const result = await response.json() as { product?: ApiProduct & { imageUrl: string }; error?: string };
       if (!response.ok || !result.product) throw new Error(result.error || "Product could not be published");
@@ -210,7 +213,16 @@ export default function AdminPage() {
       setEditedImage(null);
       setNotice(`${product.name} was published successfully and is now visible in the store.`);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Product could not be published.");
+      const message = error instanceof Error ? error.message : "Product could not be published.";
+      if (message === "Failed to fetch") {
+        setNotice(uploadStage === "media"
+          ? "The image upload could not reach Cloudinary. Check your connection and try again."
+          : uploadStage === "catalog"
+            ? "The image uploaded, but the product could not be saved. Please try publishing again."
+            : "The secure upload service could not be reached. Refresh the page and try again.");
+      } else {
+        setNotice(message);
+      }
     } finally {
       setPublishing(false);
     }
@@ -229,7 +241,7 @@ export default function AdminPage() {
           <BrandLogo variant="adminMark" href={null} decorative/>
           <div><span className="eyebrow">Commerce overview</span><h1>Welcome, Admin.</h1></div>
         </div>
-        <div><Link className="admin-security-link" href="/admin-reset">Change password</Link><Link href="/">View store ↗</Link><button onClick={() => setShowForm(true)}>＋ Add product</button></div>
+        <div className="admin-header-actions"><Link className="admin-security-link" href="/admin-reset">Change password</Link><Link href="/">View store ↗</Link><button onClick={() => setShowForm(true)}>＋ Add product</button><form className="admin-signout" action="/api/admin/logout" method="post"><button type="submit">Sign out</button></form></div>
       </header>
       {notice && <div className="admin-success">{notice}<button onClick={() => setNotice("")}>×</button></div>}
       <div className="metric-grid" id="overview">
