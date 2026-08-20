@@ -175,4 +175,6 @@ test("checkout and customer forms use the premium secure form system", async () 
   assert.match(css, /Premium, accessible forms across commerce, support and Studio/);
   assert.match(css, /html\[data-theme="dark"\] \.checkout-form/);
   assert.match(css, /\.gateway-selector button\.active/);
+  assert.match(css, /html\[data-theme="dark"\] \.commerce-header\{background:#17100e/);
+  assert.match(css, /\.commerce-header \.brand-logo-artwork\{background:#fffdf9/);
 });
