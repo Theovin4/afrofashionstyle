@@ -159,3 +159,20 @@ test("storefront sales copy and administrator actions remain launch-visible", as
   assert.match(css, /\.admin-shell \.admin-header-actions>button\{[^}]+color:#1b0d08!important/);
   assert.match(css, /\.admin-shell \.admin-signout button\{[^}]+color:#ffe7e3!important/);
 });
+
+test("checkout and customer forms use the premium secure form system", async () => {
+  const [checkout, contact, tracking, css] = await Promise.all([
+    read("app/checkout/page.tsx"),
+    read("app/contact/page.tsx"),
+    read("app/orders/track/page.tsx"),
+    read("app/globals.css"),
+  ]);
+  assert.match(checkout, /className="delivery-form"/);
+  assert.match(checkout, /aria-pressed=\{gateway === "Flutterwave"\}/);
+  assert.match(checkout, /aria-label="Apply discount code"/);
+  assert.match(contact, /autoComplete="name"/);
+  assert.match(tracking, /autoComplete="email"/);
+  assert.match(css, /Premium, accessible forms across commerce, support and Studio/);
+  assert.match(css, /html\[data-theme="dark"\] \.checkout-form/);
+  assert.match(css, /\.gateway-selector button\.active/);
+});

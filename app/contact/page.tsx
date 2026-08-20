@@ -23,8 +23,8 @@ export default function ContactPage() {
         form.reset();
       } else showActionToast(result.error || "Your enquiry could not be sent.", "error");
     }}>
-      <div className="form-split"><label>Name<input name="name" required minLength={2}/></label><label>Email<input name="email" type="email" required/></label></div>
-      <label>Phone (optional)<input name="phone" type="tel"/></label>
+      <div className="form-split"><label>Name<input name="name" autoComplete="name" required minLength={2}/></label><label>Email<input name="email" type="email" autoComplete="email" required/></label></div>
+      <label>Phone (optional)<input name="phone" type="tel" autoComplete="tel"/></label>
       <label>What can we help with?<select name="subject"><option>Sizing and measurements</option><option>Made-to-order enquiry</option><option>Styling assistance</option><option>Order support</option></select></label>
       <label>Your message<textarea name="message" required minLength={10} maxLength={3000} rows={6}/></label>
       <Turnstile action="contact"/>

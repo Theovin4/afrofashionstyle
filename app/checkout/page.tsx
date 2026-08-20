@@ -78,8 +78,8 @@ function CheckoutContent() {
     <header className="commerce-header"><BrandLogo variant="commerce"/><span>Secure checkout · Step {step} of 2</span></header>
     <div className="checkout-layout">
       <section className="checkout-form">
-        <Link href="/" className="back-link">← Continue shopping</Link><span className="eyebrow">Express checkout</span><h1>Complete your order.</h1>
-        {step === 1 ? <form onSubmit={(event) => {
+        <Link href="/" className="back-link">← Continue shopping</Link><span className="eyebrow">Express checkout</span><h1>Complete your order.</h1><p className="checkout-intro">Your details are protected and used only to prepare, deliver and support your order.</p>
+        {step === 1 ? <form className="delivery-form" onSubmit={(event) => {
           event.preventDefault();
           const fields = new FormData(event.currentTarget);
           const details: Customer = {
@@ -111,7 +111,7 @@ function CheckoutContent() {
           <button className="checkout-submit">Continue to payment →</button>
         </form> : <div className="payment-choice">
           <h2>Choose your secure payment</h2>
-          <div className="gateway-selector"><button className={gateway === "Flutterwave" ? "active" : ""} onClick={() => setGateway("Flutterwave")}><b>Flutterwave</b><span>Cards and local payment options</span></button><button className={gateway === "PayPal" ? "active" : ""} onClick={() => setGateway("PayPal")}><b>PayPal</b><span>PayPal balance or linked card</span></button></div>
+          <div className="gateway-selector"><button type="button" aria-pressed={gateway === "Flutterwave"} className={gateway === "Flutterwave" ? "active" : ""} onClick={() => setGateway("Flutterwave")}><b>Flutterwave</b><span>Cards and local payment options</span></button><button type="button" aria-pressed={gateway === "PayPal"} className={gateway === "PayPal" ? "active" : ""} onClick={() => setGateway("PayPal")}><b>PayPal</b><span>PayPal balance or linked card</span></button></div>
           <p>You’ll continue to {gateway} to authorize your payment. Your order is confirmed only after server verification.</p>
           <div className="secure-box"><b>{gateway}</b><span>Encrypted · Buyer protected · Verified confirmation</span></div>
           <button className="checkout-submit" onClick={startPayment} disabled={isPaying}>{isPaying ? `Opening ${gateway}…` : `Pay ${currency} ${grandTotal.toFixed(2)} with ${gateway} →`}</button>
@@ -121,7 +121,7 @@ function CheckoutContent() {
       </section>
       <aside className="order-summary"><span className="eyebrow">Order summary</span>
         {itemIds.map((id, index) => { const product = products.find((item) => item.id === id); return <div className="summary-product" key={`${id}-${index}`}><i>A</i><div><b>{product?.name || "Loading selection…"}</b><small>Limited edition · Made with intention</small></div><strong>{currency} {Number(currency === "GBP" ? product?.price_gbp || 0 : product?.price_usd || 0).toFixed(2)}</strong></div>; })}
-        <form className="discount-form" onSubmit={async (event) => { event.preventDefault(); setPaymentError(""); const response = await fetch("/api/discounts/validate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ code: discountCode, currency, subtotal: total }) }); const result = await response.json() as { amount?: number; error?: string }; if (!response.ok) { setDiscountTotal(0); setPaymentError(result.error || "Discount code is unavailable."); return; } setDiscountTotal(Number(result.amount || 0)); }}><input value={discountCode} onChange={(event) => setDiscountCode(event.target.value.toUpperCase())} placeholder="Discount code"/><button>Apply</button></form>
+        <form className="discount-form" aria-label="Apply discount code" onSubmit={async (event) => { event.preventDefault(); setPaymentError(""); const response = await fetch("/api/discounts/validate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ code: discountCode, currency, subtotal: total }) }); const result = await response.json() as { amount?: number; error?: string }; if (!response.ok) { setDiscountTotal(0); setPaymentError(result.error || "Discount code is unavailable."); return; } setDiscountTotal(Number(result.amount || 0)); }}><label className="sr-only" htmlFor="discount-code">Discount code</label><input id="discount-code" value={discountCode} onChange={(event) => setDiscountCode(event.target.value.toUpperCase())} placeholder="Discount code" autoComplete="off"/><button>Apply</button></form>
         <div className="summary-line"><span>Tracked Fly Logistics delivery (tax-free)</span><span>{shippingTotal ? `${currency} ${shippingTotal.toFixed(2)}` : "Complimentary"}</span></div>{bundleDiscount > 0 && <div className="summary-line discount"><span>2 Ankara dresses for {currency === "GBP" ? "£195.26" : "$260"}</span><span>−{currency} {bundleDiscount.toFixed(2)}</span></div>}{discountTotal > 0 && <div className="summary-line discount"><span>Discount</span><span>−{currency} {discountTotal.toFixed(2)}</span></div>}<div className="summary-line"><span>Tax (5% on products only)</span><span>{currency} {taxTotal.toFixed(2)}</span></div><div className="summary-line"><span>Duties</span><span>Included where shown</span></div>
         <div className="summary-total"><span>Total</span><strong>{currency} {grandTotal.toFixed(2)}</strong></div><p>✓ Secure checkout · ✓ Made on request · ✓ Fly Logistics tracking</p>
       </aside>

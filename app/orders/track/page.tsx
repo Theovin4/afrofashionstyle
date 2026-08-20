@@ -38,8 +38,8 @@ function Tracker() {
     <BrandLogo variant="commerce"/>
     <span className="eyebrow">Order care</span><h1>Track your order.</h1>
     {!order ? <form onSubmit={findOrder}>
-      <label>Order number<input value={orderNumber} onChange={(event) => setOrderNumber(event.target.value)} required placeholder="AF-2026-AB12CD34"/></label>
-      <label>Email address<input value={email} onChange={(event) => setEmail(event.target.value)} type="email" required placeholder="you@example.com"/></label>
+      <label>Order number<input value={orderNumber} onChange={(event) => setOrderNumber(event.target.value)} autoComplete="off" required placeholder="AF-2026-AB12CD34"/></label>
+      <label>Email address<input value={email} onChange={(event) => setEmail(event.target.value)} type="email" autoComplete="email" required placeholder="you@example.com"/></label>
       {error && <p className="payment-error" role="alert">{error}</p>}
       <button className="checkout-submit" disabled={loading}>{loading ? "Finding order…" : "Find my order →"}</button>
     </form> : <div className="tracking-result">
