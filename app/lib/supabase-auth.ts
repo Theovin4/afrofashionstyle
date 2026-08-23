@@ -21,8 +21,7 @@ export async function createAuthSupabase() {
   );
 }
 
-export function isAuthorizedAdminUser(user: { email?: string; app_metadata?: Record<string, unknown> }) {
+export function isAuthorizedAdminUser(user: { email?: string }) {
   const configuredEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
-  const emailMatches = !!configuredEmail && user.email?.toLowerCase() === configuredEmail;
-  return emailMatches || user.app_metadata?.role === "admin";
+  return !!configuredEmail && user.email?.toLowerCase() === configuredEmail;
 }

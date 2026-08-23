@@ -27,7 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     description: "Made-to-order Nigerian womenswear produced in Lagos and delivered to customers in the USA and UK.",
     address: { "@type": "PostalAddress", addressLocality: "Lekki", addressRegion: "Lagos", addressCountry: "NG" },
     email: "afrofashionclub@gmail.com", telephone: "+2347049841931",
-    currenciesAccepted: "USD, GBP", paymentAccepted: "PayPal, Flutterwave",
+    currenciesAccepted: "USD, GBP", paymentAccepted: "PayPal, Flutterwave, Cryptocurrency",
   };
   return <html lang="en" suppressHydrationWarning><body>
     <Script id="theme-bootstrap" strategy="beforeInteractive">{`
@@ -62,12 +62,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       gtag('js', new Date());
       gtag('config', 'G-BQGC29GHP8');
     `}</Script>
-    <Script
+    <script
       id="google-adsense"
       async
       src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7864399969744116"
       crossOrigin="anonymous"
-      strategy="afterInteractive"
     />
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
   </body></html>;

@@ -33,7 +33,7 @@ function CheckoutContent() {
   const [states, setStates] = useState<Array<{ name: string; code: string }>>([]);
   const [cities, setCities] = useState<string[]>([]);
   const [postalCodes, setPostalCodes] = useState<string[]>([]);
-  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(true);
   const [locationError, setLocationError] = useState("");
   const [cryptoNetwork, setCryptoNetwork] = useState<"usdt_trc20" | "usdt_bep20" | "usdt_sol" | "btc">("usdt_trc20");
   const cryptoAddresses = {
@@ -55,36 +55,33 @@ function CheckoutContent() {
 
   useEffect(() => {
     const controller = new AbortController();
-    setLocationLoading(true); setLocationError(""); setDeliveryState(""); setDeliveryStateCode(""); setDeliveryCity(""); setPostalCode(""); setCities([]); setPostalCodes([]);
     void fetch(`/api/locations?country=${deliveryCountry}`, { signal: controller.signal }).then(async (response) => {
       const result = await response.json() as { states?: Array<{ name: string; code: string }>; error?: string };
       if (!response.ok) throw new Error(result.error);
       setStates(result.states || []);
-    }).catch((error) => { if (error instanceof Error && error.name !== "AbortError") setLocationError(error.message); }).finally(() => setLocationLoading(false));
+    }).catch((error) => { if (error instanceof Error && error.name !== "AbortError") setLocationError(error.message); }).finally(() => { if (!controller.signal.aborted) setLocationLoading(false); });
     return () => controller.abort();
   }, [deliveryCountry]);
 
   useEffect(() => {
     if (!deliveryState) return;
     const controller = new AbortController();
-    setLocationLoading(true); setLocationError(""); setDeliveryCity(""); setPostalCode(""); setPostalCodes([]);
     void fetch(`/api/locations?country=${deliveryCountry}&state=${encodeURIComponent(deliveryState)}`, { signal: controller.signal }).then(async (response) => {
       const result = await response.json() as { cities?: string[]; error?: string };
       if (!response.ok) throw new Error(result.error);
       setCities(result.cities || []);
-    }).catch((error) => { if (error instanceof Error && error.name !== "AbortError") setLocationError(error.message); }).finally(() => setLocationLoading(false));
+    }).catch((error) => { if (error instanceof Error && error.name !== "AbortError") setLocationError(error.message); }).finally(() => { if (!controller.signal.aborted) setLocationLoading(false); });
     return () => controller.abort();
   }, [deliveryCountry, deliveryState]);
 
   useEffect(() => {
     if (!deliveryState || !deliveryCity) return;
     const controller = new AbortController();
-    setLocationLoading(true); setLocationError(""); setPostalCode("");
     void fetch(`/api/locations?country=${deliveryCountry}&state=${encodeURIComponent(deliveryState)}&stateCode=${encodeURIComponent(deliveryStateCode)}&city=${encodeURIComponent(deliveryCity)}`, { signal: controller.signal }).then(async (response) => {
       const result = await response.json() as { postalCodes?: string[]; error?: string };
       if (!response.ok) throw new Error(result.error);
       setPostalCodes(result.postalCodes || []); setPostalCode(result.postalCodes?.[0] || "");
-    }).catch((error) => { if (error instanceof Error && error.name !== "AbortError") setLocationError(error.message); }).finally(() => setLocationLoading(false));
+    }).catch((error) => { if (error instanceof Error && error.name !== "AbortError") setLocationError(error.message); }).finally(() => { if (!controller.signal.aborted) setLocationLoading(false); });
     return () => controller.abort();
   }, [deliveryCountry, deliveryState, deliveryStateCode, deliveryCity]);
 
@@ -190,9 +187,9 @@ function CheckoutContent() {
           <label>Email<input name="email" type="email" autoComplete="email" required/></label>
           <label>Phone<input name="phone" type="tel" autoComplete="tel" required/></label>
           <label>Address<input name="address" autoComplete="street-address" required/></label>
-          <label>Country<select name="country" autoComplete="country" value={deliveryCountry} onChange={(event) => setDeliveryCountry(event.target.value === "GB" ? "GB" : "US")}><option value="US">United States</option><option value="GB">United Kingdom</option></select></label>
-          <label>State / region<select name="state" autoComplete="address-level1" value={deliveryState} onChange={(event) => { const selected = states.find((state) => state.name === event.target.value); setDeliveryState(selected?.name || ""); setDeliveryStateCode(selected?.code || ""); }} required disabled={locationLoading && !states.length}><option value="">{locationLoading && !states.length ? "Loading regions…" : "Select a state or region"}</option>{states.map((state) => <option key={`${state.name}-${state.code}`} value={state.name}>{state.name}</option>)}</select></label>
-          <div className="form-split"><label>City<select name="city" autoComplete="address-level2" value={deliveryCity} onChange={(event) => setDeliveryCity(event.target.value)} required disabled={!deliveryState || (locationLoading && !cities.length)}><option value="">{deliveryState ? "Select a city" : "Select a region first"}</option>{cities.map((city) => <option key={city} value={city}>{city}</option>)}</select></label><label>ZIP / Postcode{postalCodes.length > 1 ? <select name="zip" autoComplete="postal-code" value={postalCode} onChange={(event) => setPostalCode(event.target.value)} required><option value="">Select postal code</option>{postalCodes.map((code) => <option key={code} value={code}>{code}</option>)}</select> : <input name="zip" autoComplete="postal-code" value={postalCode} onChange={(event) => setPostalCode(event.target.value)} placeholder={deliveryCity && locationLoading ? "Finding code…" : "Postal code"} required/>}</label></div>
+          <label>Country<select name="country" autoComplete="country" value={deliveryCountry} onChange={(event) => { setDeliveryCountry(event.target.value === "GB" ? "GB" : "US"); setDeliveryState(""); setDeliveryStateCode(""); setDeliveryCity(""); setPostalCode(""); setStates([]); setCities([]); setPostalCodes([]); setLocationError(""); setLocationLoading(true); }}><option value="US">United States</option><option value="GB">United Kingdom</option></select></label>
+          <label>State / region<select name="state" autoComplete="address-level1" value={deliveryState} onChange={(event) => { const selected = states.find((state) => state.name === event.target.value); setDeliveryState(selected?.name || ""); setDeliveryStateCode(selected?.code || ""); setDeliveryCity(""); setPostalCode(""); setCities([]); setPostalCodes([]); setLocationError(""); setLocationLoading(Boolean(selected)); }} required disabled={locationLoading && !states.length}><option value="">{locationLoading && !states.length ? "Loading regions…" : "Select a state or region"}</option>{states.map((state) => <option key={`${state.name}-${state.code}`} value={state.name}>{state.name}</option>)}</select></label>
+          <div className="form-split"><label>City<select name="city" autoComplete="address-level2" value={deliveryCity} onChange={(event) => { const city = event.target.value; setDeliveryCity(city); setPostalCode(""); setPostalCodes([]); setLocationError(""); setLocationLoading(Boolean(city)); }} required disabled={!deliveryState || (locationLoading && !cities.length)}><option value="">{deliveryState ? "Select a city" : "Select a region first"}</option>{cities.map((city) => <option key={city} value={city}>{city}</option>)}</select></label><label>ZIP / Postcode{postalCodes.length > 1 ? <select name="zip" autoComplete="postal-code" value={postalCode} onChange={(event) => setPostalCode(event.target.value)} required><option value="">Select postal code</option>{postalCodes.map((code) => <option key={code} value={code}>{code}</option>)}</select> : <input name="zip" autoComplete="postal-code" value={postalCode} onChange={(event) => setPostalCode(event.target.value)} placeholder={deliveryCity && locationLoading ? "Finding code…" : "Postal code"} required/>}</label></div>
           {deliveryCity && <small className="field-help">Confirm the postal code matches your street address before continuing.</small>}
           {locationError && <p className="payment-error" role="alert">{locationError}</p>}
           <label className="consent-check"><input name="cartReminder" type="checkbox" value="yes"/> Email me one reminder after 24 hours if I leave without completing this order. I can ignore the message and will not receive repeated cart emails.</label>

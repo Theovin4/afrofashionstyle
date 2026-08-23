@@ -1,5 +1,24 @@
 import { createAdminSupabase } from "./supabase";
 
+function escapeHtml(value: unknown) {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[character] ?? character);
+}
+
+function safeTrackingUrl(value: unknown) {
+  try {
+    const url = new URL(String(value ?? ""));
+    return url.protocol === "https:" ? url.toString() : "";
+  } catch {
+    return "";
+  }
+}
+
 export async function sendOrderConfirmation(orderId: string) {
   const supabase = createAdminSupabase();
   const { data: order } = await supabase.from("orders")
@@ -12,12 +31,12 @@ export async function sendOrderConfirmation(orderId: string) {
     await supabase.from("customer_notifications").insert({ order_id: order.id, recipient: order.customer_email, notification_type: "order_confirmation", status: "skipped", error: "Email provider is not configured" });
     return;
   }
-  const items = order.order_items.map((item) => `<li>${item.product_name} × ${item.quantity}${item.selected_size ? ` — ${item.selected_size}` : ""}</li>`).join("");
+  const items = order.order_items.map((item) => `<li>${escapeHtml(item.product_name)} × ${Number(item.quantity)}${item.selected_size ? ` — ${escapeHtml(item.selected_size)}` : ""}</li>`).join("");
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST", headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
     body: JSON.stringify({
       from, to: [order.customer_email], subject: `Your Afro.Fashionstyle order ${order.order_number} is confirmed`,
-      html: `<div style="font-family:Arial,sans-serif;color:#33140c;max-width:620px;margin:auto"><h1>Your story is on its way.</h1><p>Hi ${order.customer_name}, your payment is confirmed.</p><ul>${items}</ul><p><b>Total: ${order.currency} ${Number(order.total).toFixed(2)}</b></p><p>We will email tracking details when your order ships.</p></div>`,
+      html: `<div style="font-family:Arial,sans-serif;color:#33140c;max-width:620px;margin:auto"><h1>Your story is on its way.</h1><p>Hi ${escapeHtml(order.customer_name)}, your payment is confirmed.</p><ul>${items}</ul><p><b>Total: ${escapeHtml(order.currency)} ${Number(order.total).toFixed(2)}</b></p><p>We will email tracking details when your order ships.</p></div>`,
     }),
   });
   const result = await response.json() as { id?: string; message?: string };
@@ -38,10 +57,11 @@ export async function sendShippingConfirmation(orderId: string) {
     await supabase.from("customer_notifications").insert({ order_id: order.id, recipient: order.customer_email, notification_type: "shipping_confirmation", status: "skipped", error: "Email provider is not configured" });
     return;
   }
+  const trackingUrl = safeTrackingUrl(order.tracking_url);
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST", headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
     body: JSON.stringify({ from, to: [order.customer_email], subject: `Your order ${order.order_number} has shipped`,
-      html: `<div style="font-family:Arial,sans-serif;color:#33140c;max-width:620px;margin:auto"><h1>Your order is on its way.</h1><p>Hi ${order.customer_name}, ${order.carrier || "our delivery partner"} now has your parcel.</p><p>Tracking: <b>${order.tracking_number || "Available through the link below"}</b></p>${order.tracking_url ? `<p><a href="${order.tracking_url}">Track your order</a></p>` : ""}</div>` }),
+      html: `<div style="font-family:Arial,sans-serif;color:#33140c;max-width:620px;margin:auto"><h1>Your order is on its way.</h1><p>Hi ${escapeHtml(order.customer_name)}, ${escapeHtml(order.carrier || "our delivery partner")} now has your parcel.</p><p>Tracking: <b>${escapeHtml(order.tracking_number || "Available through the link below")}</b></p>${trackingUrl ? `<p><a href="${escapeHtml(trackingUrl)}">Track your order</a></p>` : ""}</div>` }),
   });
   const result = await response.json() as { id?: string; message?: string };
   await supabase.from("customer_notifications").insert({ order_id: order.id, recipient: order.customer_email, notification_type: "shipping_confirmation", provider: "resend", provider_message_id: result.id || null, status: response.ok ? "sent" : "failed", error: response.ok ? null : result.message || "Email provider error", sent_at: response.ok ? new Date().toISOString() : null });
