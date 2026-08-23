@@ -221,3 +221,22 @@ test("crypto checkout is manual, proof-gated and administrator reviewed", async 
   assert.match(migration, /revoke all.*anon, authenticated/);
   assert.match(privacy, /Never upload a wallet password/);
 });
+
+test("Flutterwave dashboard links are available as a verified backup flow", async () => {
+  const [checkout, linkApi, handoff, verifier] = await Promise.all([
+    read("app/checkout/page.tsx"),
+    read("app/api/flutterwave/payment-link/route.ts"),
+    read("app/payment/flutterwave/link/page.tsx"),
+    read("app/lib/flutterwave.ts"),
+  ]);
+  assert.match(checkout, /Use backup Flutterwave payment link/);
+  assert.match(linkApi, /NEXT_PUBLIC_FLUTTERWAVE_PAYMENT_LINK_USD/);
+  assert.match(linkApi, /NEXT_PUBLIC_FLUTTERWAVE_PAYMENT_LINK_GBP/);
+  assert.match(linkApi, /hostname\.endsWith\("\.flutterwave\.com"\)/);
+  assert.match(linkApi, /provider_order_id: `payment-link:/);
+  assert.match(handoff, /Open secure Flutterwave payment/);
+  assert.match(handoff, /Flutterwave transaction ID/);
+  assert.match(verifier, /verifyAndCompleteFlutterwavePaymentLink/);
+  assert.match(verifier, /verifiedEmail !== String\(order\.customer_email\)/);
+  assert.match(verifier, /transaction\.amount.*order\.total/);
+});

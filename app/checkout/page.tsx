@@ -125,6 +125,19 @@ function CheckoutContent() {
     }
   }
 
+  async function startFlutterwavePaymentLink() {
+    if (!customer || !itemIds.length) return;
+    setIsPaying(true); setPaymentError("");
+    try {
+      const response = await fetch("/api/flutterwave/payment-link", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ items: itemIds, sizes, currency, customer, discountCode: discountCode || undefined, meta: { consent: hasMarketingConsent(), ...attributionData() } }) });
+      const result = await response.json() as { handoffUrl?: string; error?: string };
+      if (!response.ok || !result.handoffUrl) throw new Error(result.error || "The backup payment link is unavailable.");
+      window.location.assign(result.handoffUrl);
+    } catch (error) {
+      setPaymentError(error instanceof Error ? error.message : "The backup payment link is unavailable."); setIsPaying(false);
+    }
+  }
+
   async function submitCryptoPayment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!customer || !itemIds.length) return;
@@ -200,6 +213,7 @@ function CheckoutContent() {
             <p>You’ll continue to {gateway} to authorize your payment. Your order is confirmed only after server verification.</p>
             <div className="secure-box"><b>{gateway}</b><span>Encrypted · Buyer protected · Verified confirmation</span></div>
             <button className="checkout-submit" onClick={startPayment} disabled={isPaying}>{isPaying ? `Opening ${gateway}…` : `Pay ${currency} ${grandTotal.toFixed(2)} with ${gateway} →`}</button>
+            {gateway === "Flutterwave" && <div className="payment-link-alternative"><span>Having trouble with standard Flutterwave checkout?</span><button type="button" onClick={startFlutterwavePaymentLink} disabled={isPaying}>Use backup Flutterwave payment link</button><small>You will return with your transaction ID so the store can verify the exact amount, currency and customer email.</small></div>}
           </>}
           {paymentError && <p className="payment-error" role="alert">{paymentError}</p>}
           <button className="change-payment" onClick={() => setStep(1)}>← Edit delivery details</button>
