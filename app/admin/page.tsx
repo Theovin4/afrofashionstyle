@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { BrandLogo } from "../components/brand-logo";
@@ -8,8 +8,8 @@ import { PRODUCT_CATEGORIES } from "../lib/catalog";
 import { ProductImageEditor } from "./product-image-editor";
 import { showActionToast } from "../components/action-toast";
 
-type Product = { id: string; name: string; category: string; price: number; stock: number; status: string; imageUrl?: string; description?: string };
-type ApiProduct = { id: string; name: string; category: string; price_usd: number; stock: number; status: string; description?: string; product_images?: Array<{ secure_url: string }> };
+type Product = { id: string; name: string; category: string; price: number; priceGbp: number; stock: number; status: string; featured: boolean; imageUrl?: string; description?: string };
+type ApiProduct = { id: string; name: string; category: string; price_usd: number; price_gbp: number; stock: number; status: string; featured: boolean; description?: string; product_images?: Array<{ secure_url: string }> };
 type CryptoPayment = { id: string; network: string; amount_sent: string; transaction_reference: string; review_status: string; review_note?: string; submitted_at: string };
 type Order = { id: string; order_number: string; customer_name: string; customer_email: string; currency: string; total: number; payment_gateway: string; payment_status: string; fulfillment_status: string; tracking_number?: string; tracking_url?: string; carrier?: string; created_at: string; order_items?: Array<{ product_name: string; quantity: number; selected_size?: string }>; crypto_payments?: CryptoPayment[] };
 type Operations = {
@@ -22,10 +22,18 @@ type BlogPost = { id: string; title: string; slug: string; excerpt: string; cont
 
 const isoDate = (date: Date) => date.toISOString().slice(0, 10);
 const defaultReportStart = () => { const date = new Date(); date.setDate(date.getDate() - 29); return isoDate(date); };
+const studioProduct = (product: ApiProduct, imageUrl?: string): Product => ({
+  id: product.id, name: product.name, category: product.category, price: Number(product.price_usd), priceGbp: Number(product.price_gbp),
+  stock: product.stock, status: product.status === "active" ? "Active" : product.status, featured: Boolean(product.featured),
+  imageUrl: imageUrl || product.product_images?.[0]?.secure_url, description: product.description,
+});
 
 export default function AdminPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editPriceUsd, setEditPriceUsd] = useState("");
+  const [savingProduct, setSavingProduct] = useState(false);
   const [notice, setNotice] = useState("");
   const [publishing, setPublishing] = useState(false);
   const [editedImage, setEditedImage] = useState<File | null>(null);
@@ -78,11 +86,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     fetch("/api/admin/products").then((response) => response.ok ? response.json() : Promise.reject())
-      .then(({ products: rows }: { products: ApiProduct[] }) => setProducts(rows.map((product) => ({
-        id: product.id, name: product.name, category: product.category, price: Number(product.price_usd),
-        stock: product.stock, status: product.status === "active" ? "Active" : product.status,
-        imageUrl: product.product_images?.[0]?.secure_url, description: product.description,
-      })))).catch(() => setNotice("Products could not be loaded."));
+      .then(({ products: rows }: { products: ApiProduct[] }) => setProducts(rows.map((product) => studioProduct(product)))).catch(() => setNotice("Products could not be loaded."));
   }, []);
 
   async function loadPosts() {
@@ -92,24 +96,46 @@ export default function AdminPage() {
   useEffect(() => { queueMicrotask(() => void loadPosts()); }, []);
 
   async function productAction(product: Product, action: "edit" | "duplicate" | "delete") {
-    if (action === "delete" && !window.confirm(`Delete ${product.name}? This cannot be undone.`)) return;
-    let response: Response;
     if (action === "edit") {
-      const name = window.prompt("Product name", product.name);
-      if (!name) return;
-      const priceUsd = Number(window.prompt("Price in USD", String(product.price)));
-      const stock = Number(window.prompt("Inventory", String(product.stock)));
-      const category = window.prompt("Collection", product.category) || product.category;
-      response = await fetch(`/api/admin/products/${product.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, priceUsd, stock, category, status: product.status.toLowerCase() }) });
-    } else {
-      response = await fetch(`/api/admin/products/${product.id}`, { method: action === "delete" ? "DELETE" : "POST" });
+      setEditingProduct(product);
+      setEditPriceUsd(String(product.price));
+      return;
     }
+    if (action === "delete" && !window.confirm(`Delete ${product.name}? This cannot be undone.`)) return;
+    const response = await fetch(`/api/admin/products/${product.id}`, { method: action === "delete" ? "DELETE" : "POST" });
     const result = await response.json() as { product?: ApiProduct; error?: string };
     if (!response.ok) { setNotice(result.error || `Product could not be ${action}d.`); return; }
     if (action === "delete") setProducts((all) => all.filter((item) => item.id !== product.id));
-    else if (action === "duplicate" && result.product) setProducts((all) => [{ id: result.product!.id, name: result.product!.name, category: result.product!.category, price: Number(result.product!.price_usd), stock: result.product!.stock, status: "draft" }, ...all]);
-    else if (result.product) setProducts((all) => all.map((item) => item.id === product.id ? { ...item, name: result.product!.name, category: result.product!.category, price: Number(result.product!.price_usd), stock: result.product!.stock, status: result.product!.status } : item));
-    setNotice(`Product ${action === "edit" ? "updated" : action === "duplicate" ? "duplicated as a draft" : "deleted"}.`);
+    else if (action === "duplicate" && result.product) setProducts((all) => [studioProduct(result.product!, product.imageUrl), ...all]);
+    setNotice(`Product ${action === "duplicate" ? "duplicated as a draft" : "deleted"}.`);
+  }
+
+  async function saveProduct(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingProduct) return;
+    setSavingProduct(true);
+    const fields = new FormData(event.currentTarget);
+    try {
+      const response = await fetch(`/api/admin/products/${editingProduct.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: fields.get("name"), category: fields.get("category"), priceUsd: fields.get("priceUsd"),
+          stock: fields.get("stock"), status: fields.get("status"), featured: fields.get("featured") === "yes",
+          description: fields.get("description"),
+        }),
+      });
+      const result = await response.json() as { product?: ApiProduct; error?: string };
+      if (!response.ok || !result.product) throw new Error(result.error || "Product could not be updated.");
+      const updated = studioProduct(result.product, editingProduct.imageUrl);
+      setProducts((all) => all.map((product) => product.id === updated.id ? updated : product));
+      setEditingProduct(null);
+      setNotice(`${updated.name} and its prices were updated successfully.`);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Product could not be updated.");
+    } finally {
+      setSavingProduct(false);
+    }
   }
 
   async function createPost() {
@@ -217,10 +243,7 @@ export default function AdminPage() {
       const result = await response.json() as { product?: ApiProduct & { imageUrl: string }; error?: string };
       if (!response.ok || !result.product) throw new Error(result.error || "Product could not be published");
       const product = result.product;
-      setProducts((all) => [{
-        id: product.id, name: product.name, category: product.category, price: Number(product.price_usd),
-        stock: product.stock, status: "Active", imageUrl: product.imageUrl,
-      }, ...all]);
+      setProducts((all) => [studioProduct(product, product.imageUrl), ...all]);
       setShowForm(false);
       setEditedImage(null);
       setNotice(`${product.name} was published successfully and is now visible in the store.`);
@@ -239,6 +262,9 @@ export default function AdminPage() {
       setPublishing(false);
     }
   }
+
+  const editGbpRate = editingProduct?.price && editingProduct.priceGbp ? editingProduct.priceGbp / editingProduct.price : .751;
+  const editGbpEstimate = Number.isFinite(Number(editPriceUsd)) ? Number(editPriceUsd) * editGbpRate : 0;
 
   return <main className="admin-shell">
     <aside className="admin-nav">
@@ -269,7 +295,7 @@ export default function AdminPage() {
           <div className="table-row labels"><span>Product</span><span>Category</span><span>Price</span><span>Inventory</span><span>Status / actions</span></div>
           {filteredProducts.map((product) => <div className="table-row" key={product.id}>
             <span>{product.imageUrl ? <Image src={product.imageUrl} alt="" width={42} height={52}/> : <i>{product.name.slice(0, 1)}</i>}<b>{product.name}</b></span>
-            <span>{product.category}</span><span>${product.price}</span><span>{product.stock} units</span>
+            <span>{product.category}</span><span className="product-price-pair"><b>USD {product.price.toFixed(2)}</b><small>GBP {product.priceGbp.toFixed(2)}</small></span><span>{product.stock} units</span>
             <span className="row-actions"><em className={product.stock < 10 ? "warn" : ""}>{product.status}</em><button onClick={() => void productAction(product, "edit")}>Edit</button><button onClick={() => void productAction(product, "duplicate")}>Duplicate</button><button className="danger" onClick={() => void productAction(product, "delete")}>Delete</button></span>
           </div>)}
         </div>
@@ -337,6 +363,20 @@ export default function AdminPage() {
         <ProductImageEditor onReady={setEditedImage}/>
         <label>Description<textarea name="description" rows={4} placeholder="Optional — include fabric, fit and suitable occasions. A factual product summary is added if left blank."/></label>
         <button className="publish" disabled={publishing || !editedImage}>{publishing ? "Publishing…" : editedImage ? "Publish product" : "Prepare an image to continue"}</button>
+      </form>
+    </div>}
+    {editingProduct && <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="edit-product-title">
+      <form className="product-modal product-edit-modal" onSubmit={(event) => void saveProduct(event)}>
+        <div><span className="eyebrow">Catalog editor</span><h2 id="edit-product-title">Edit product and pricing</h2><button type="button" aria-label="Close product editor" onClick={() => setEditingProduct(null)}>×</button></div>
+        <div className="product-edit-summary">{editingProduct.imageUrl ? <Image src={editingProduct.imageUrl} alt="" width={76} height={96}/> : <span>{editingProduct.name.slice(0, 1)}</span>}<div><b>{editingProduct.name}</b><small>Changes update Commerce Studio and the public store after saving.</small></div></div>
+        <label>Product name<input name="name" defaultValue={editingProduct.name} required maxLength={140}/></label>
+        <label>Category<select name="category" defaultValue={editingProduct.category}>{PRODUCT_CATEGORIES.map((category) => <option key={category}>{category}</option>)}</select></label>
+        <div className="form-split"><label>Price (USD)<input name="priceUsd" type="number" min="1" max="999999" step="0.01" value={editPriceUsd} onChange={(event) => setEditPriceUsd(event.target.value)} required/></label><label>Price (GBP)<input value={`£${editGbpEstimate.toFixed(2)} · calculated automatically`} readOnly aria-label="Calculated GBP price"/></label></div>
+        <small className="field-help">Enter the selling price in USD. The GBP price is recalculated from your configured exchange rate when you save, keeping both storefront currencies consistent.</small>
+        <div className="form-split"><label>Inventory<input name="stock" type="number" min="0" max="1000000" step="1" defaultValue={editingProduct.stock} required/></label><label>Store status<select name="status" defaultValue={editingProduct.status.toLowerCase()}><option value="active">Active and visible</option><option value="draft">Draft and hidden</option><option value="archived">Archived</option></select></label></div>
+        <label className="product-featured-check"><input name="featured" type="checkbox" value="yes" defaultChecked={editingProduct.featured}/><span><b>Featured product</b><small>Prioritize this design in featured storefront sections.</small></span></label>
+        <label>Description<textarea name="description" rows={6} defaultValue={editingProduct.description || ""} maxLength={5000} placeholder="Fabric, fit, finish and suitable occasions."/></label>
+        <div className="product-edit-actions"><button type="button" onClick={() => setEditingProduct(null)}>Cancel</button><button className="publish" type="submit" disabled={savingProduct}>{savingProduct ? "Saving changes…" : "Save product changes"}</button></div>
       </form>
     </div>}
   </main>;

@@ -166,6 +166,23 @@ test("product image studio prepares a complete optimized edit before upload", as
   assert.match(css, /Full product image studio/);
 });
 
+test("Commerce Studio edits product details and synchronized USD and GBP prices", async () => {
+  const [adminStudio, productRoute, css] = await Promise.all([
+    read("app/admin/page.tsx"),
+    read("app/api/admin/products/[id]/route.ts"),
+    read("app/globals.css"),
+  ]);
+  assert.match(adminStudio, /Edit product and pricing/);
+  assert.match(adminStudio, /name="priceUsd"/);
+  assert.match(adminStudio, /Calculated GBP price/);
+  assert.match(adminStudio, /name="status"/);
+  assert.match(adminStudio, /name="featured"/);
+  assert.match(productRoute, /price_gbp: Math\.round\(priceUsd \* rate \* 100\) \/ 100/);
+  assert.match(productRoute, /revalidatePath\("\/shop"\)/);
+  assert.match(productRoute, /readLimitedJson<Record<string, unknown>>\(request, 16_384\)/);
+  assert.match(css, /Product and price editing in Commerce Studio/);
+});
+
 test("dark mode is present on the first paint and saved customer choice remains respected", async () => {
   const [layout, themeControl] = await Promise.all([
     read("app/layout.tsx"),
