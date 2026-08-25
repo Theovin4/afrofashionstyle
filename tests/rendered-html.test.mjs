@@ -149,6 +149,23 @@ test("secure direct Cloudinary uploads are permitted by the site policy", async 
   assert.match(adminStudio, /cloudinaryPublicId/);
 });
 
+test("product image studio prepares a complete optimized edit before upload", async () => {
+  const [editor, adminStudio, css] = await Promise.all([
+    read("app/admin/product-image-editor.tsx"),
+    read("app/admin/page.tsx"),
+    read("app/globals.css"),
+  ]);
+  assert.match(editor, /Drag image to reposition/);
+  assert.match(editor, /Fill frame/);
+  assert.match(editor, /Flip horizontal/);
+  assert.match(editor, /Brightness/);
+  assert.match(editor, /Web quality/);
+  assert.match(editor, /canvas\.toBlob/);
+  assert.match(editor, /version !== exportVersionRef\.current/);
+  assert.match(adminStudio, /disabled=\{publishing \|\| !editedImage\}/);
+  assert.match(css, /Full product image studio/);
+});
+
 test("storefront sales copy and administrator actions remain launch-visible", async () => {
   const [home, css] = await Promise.all([
     read("app/page.tsx"),

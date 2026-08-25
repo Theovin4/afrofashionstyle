@@ -336,7 +336,7 @@ export default function AdminPage() {
         <label>Available sizes<input name="sizes" defaultValue="US 2, US 4, US 6, US 8, US 10, US 12, US 14, US 16, US 18"/></label>
         <ProductImageEditor onReady={setEditedImage}/>
         <label>Description<textarea name="description" rows={4} placeholder="Optional — include fabric, fit and suitable occasions. A factual product summary is added if left blank."/></label>
-        <button className="publish" disabled={publishing}>{publishing ? "Publishing…" : "Publish product"}</button>
+        <button className="publish" disabled={publishing || !editedImage}>{publishing ? "Publishing…" : editedImage ? "Publish product" : "Prepare an image to continue"}</button>
       </form>
     </div>}
   </main>;
