@@ -14,7 +14,7 @@ export function ThemeControl() {
       return;
     }
     const saved = localStorage.getItem("afro-theme");
-    const active = saved === "dark" || saved === "light" ? saved : (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    const active = saved === "dark" || saved === "light" ? saved : "dark";
     document.documentElement.dataset.theme = active;
     document.documentElement.style.colorScheme = active;
   }, [isAdmin]);

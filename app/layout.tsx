@@ -29,12 +29,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     email: "afrofashionclub@gmail.com", telephone: "+2347049841931",
     currenciesAccepted: "USD, GBP", paymentAccepted: "PayPal, Flutterwave, Cryptocurrency",
   };
-  return <html lang="en" suppressHydrationWarning><body>
+  return <html lang="en" data-theme="dark" style={{ colorScheme: "dark" }} suppressHydrationWarning><body>
     <Script id="theme-bootstrap" strategy="beforeInteractive">{`
       try {
         var admin = location.pathname.indexOf('/admin') === 0;
         var saved = localStorage.getItem('afro-theme');
-        var theme = admin ? 'dark' : (saved === 'dark' || saved === 'light' ? saved : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+        var theme = admin ? 'dark' : (saved === 'dark' || saved === 'light' ? saved : 'dark');
         document.documentElement.dataset.theme = theme;
         document.documentElement.style.colorScheme = theme;
       } catch (_) {}

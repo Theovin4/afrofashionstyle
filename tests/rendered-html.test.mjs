@@ -166,6 +166,17 @@ test("product image studio prepares a complete optimized edit before upload", as
   assert.match(css, /Full product image studio/);
 });
 
+test("dark mode is present on the first paint and saved customer choice remains respected", async () => {
+  const [layout, themeControl] = await Promise.all([
+    read("app/layout.tsx"),
+    read("app/components/theme-control.tsx"),
+  ]);
+  assert.match(layout, /<html lang="en" data-theme="dark" style=\{\{ colorScheme: "dark" \}\}/);
+  assert.match(layout, /saved === 'dark' \|\| saved === 'light' \? saved : 'dark'/);
+  assert.match(themeControl, /saved === "dark" \|\| saved === "light" \? saved : "dark"/);
+  assert.doesNotMatch(themeControl, /prefers-color-scheme/);
+});
+
 test("storefront sales copy and administrator actions remain launch-visible", async () => {
   const [home, css] = await Promise.all([
     read("app/page.tsx"),
