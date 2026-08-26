@@ -5,6 +5,7 @@ import { SiteFooter } from "../../components/site-footer";
 import { createPublicSupabase } from "../../lib/supabase";
 
 export const dynamic = "force-dynamic";
+const modernJournalSlug = (slug: string) => slug.replace("how-to-measure-for-a-made-to-order-african-dress", "how-to-measure-for-an-african-dress-online");
 
 async function getPost(slug: string) {
   const { data } = await createPublicSupabase().from("blog_posts").select("*").eq("slug", slug).eq("status", "published").maybeSingle();
@@ -33,7 +34,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 }
 
 export default async function JournalPostPage({ params }: { params: Promise<{ slug: string }> }) {
-  const post = await getPost((await params).slug);
+  const requestedSlug = (await params).slug;
+  const modernSlug = modernJournalSlug(requestedSlug);
+  if (modernSlug !== requestedSlug) permanentRedirect(`/journal/${modernSlug}`);
+  const post = await getPost(requestedSlug);
   if (!post) notFound();
   const canonical = await getCanonicalPost(post.title);
   if (canonical && canonical.slug !== post.slug) permanentRedirect(`/journal/${canonical.slug}`);

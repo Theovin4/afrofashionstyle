@@ -223,6 +223,12 @@ test("storefront copy and SEO target Nigerian fashion shoppers in the USA and UK
   assert.match(css, /\.announcement\{padding:7px 12px;font-size:9px/);
 });
 
+test("legacy journal wording redirects without losing indexed traffic", async () => {
+  const journal = await read("app/journal/[slug]/page.tsx");
+  assert.match(journal, /how-to-measure-for-an-african-dress-online/);
+  assert.match(journal, /permanentRedirect\(`\/journal\/\$\{modernSlug\}`\)/);
+});
+
 test("checkout and customer forms use the premium secure form system", async () => {
   const [checkout, contact, tracking, css] = await Promise.all([
     read("app/checkout/page.tsx"),
