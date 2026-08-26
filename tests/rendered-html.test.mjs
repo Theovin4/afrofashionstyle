@@ -302,3 +302,21 @@ test("contact enquiries are saved, emailed and have a WhatsApp fallback", async 
   assert.match(notifications, /reply_to: input\.email/);
   assert.match(css, /\.contact-honeypot/);
 });
+
+test("Commerce Studio has a guarded Fly Logistics fulfilment workflow", async () => {
+  const [admin, orders, notifications, css] = await Promise.all([
+    read("app/admin/page.tsx"),
+    read("app/api/admin/orders/route.ts"),
+    read("app/lib/notifications.ts"),
+    read("app/globals.css"),
+  ]);
+  assert.match(admin, /Prepare and dispatch/);
+  assert.match(admin, /Fly Logistics/);
+  assert.match(admin, /Shipped · send tracking email/);
+  assert.match(admin, /Delivered/);
+  assert.match(orders, /Only a paid order can enter production/);
+  assert.match(orders, /tracking number and secure tracking URL are required/);
+  assert.match(orders, /sendShippingConfirmation/);
+  assert.match(notifications, /Track your order/);
+  assert.match(css, /\.fulfillment-modal/);
+});

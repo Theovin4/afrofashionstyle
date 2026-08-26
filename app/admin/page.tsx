@@ -11,7 +11,7 @@ import { showActionToast } from "../components/action-toast";
 type Product = { id: string; name: string; category: string; price: number; priceGbp: number; stock: number; status: string; featured: boolean; imageUrl?: string; description?: string };
 type ApiProduct = { id: string; name: string; category: string; price_usd: number; price_gbp: number; stock: number; status: string; featured: boolean; description?: string; product_images?: Array<{ secure_url: string }> };
 type CryptoPayment = { id: string; network: string; amount_sent: string; transaction_reference: string; review_status: string; review_note?: string; submitted_at: string };
-type Order = { id: string; order_number: string; customer_name: string; customer_email: string; currency: string; total: number; payment_gateway: string; payment_status: string; fulfillment_status: string; tracking_number?: string; tracking_url?: string; carrier?: string; created_at: string; order_items?: Array<{ product_name: string; quantity: number; selected_size?: string }>; crypto_payments?: CryptoPayment[] };
+type Order = { id: string; order_number: string; customer_name: string; customer_email: string; phone?: string; shipping_address?: { line1?: string; city?: string; state?: string; postal_code?: string; country?: string }; currency: string; total: number; payment_gateway: string; payment_status: string; fulfillment_status: string; tracking_number?: string; tracking_url?: string; carrier?: string; created_at: string; order_items?: Array<{ product_name: string; quantity: number; selected_size?: string }>; crypto_payments?: CryptoPayment[] };
 type Operations = {
   discounts: Array<{ id: string; code: string; kind: string; value: number; active: boolean; uses: number }>;
   shipping: Array<{ id: string; country: string; currency: string; name: string; rate: number; free_over: number | null; delivery_min_days: number; delivery_max_days: number }>;
@@ -38,6 +38,8 @@ export default function AdminPage() {
   const [publishing, setPublishing] = useState(false);
   const [editedImage, setEditedImage] = useState<File | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [fulfillmentOrder, setFulfillmentOrder] = useState<Order | null>(null);
+  const [savingOrder, setSavingOrder] = useState(false);
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [operations, setOperations] = useState<Operations>({ discounts: [], shipping: [], reviews: [], settings: {} });
   const [productQuery, setProductQuery] = useState("");
@@ -188,15 +190,24 @@ export default function AdminPage() {
       .then(({ orders: rows }: { orders: Order[] }) => setOrders(rows)).catch(() => setNotice("Orders could not be loaded."));
   }, []);
 
-  async function updateOrder(order: Order, fulfillmentStatus: string) {
-    const trackingNumber = fulfillmentStatus === "shipped" ? window.prompt("Tracking number", order.tracking_number || "") || "" : order.tracking_number || "";
-    const carrier = fulfillmentStatus === "shipped" ? window.prompt("Carrier", order.carrier || "") || "" : order.carrier || "";
-    const trackingUrl = fulfillmentStatus === "shipped" ? window.prompt("Tracking URL", order.tracking_url || "") || "" : order.tracking_url || "";
-    const response = await fetch("/api/admin/orders", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: order.id, fulfillmentStatus, trackingNumber, carrier, trackingUrl }) });
-    const result = await response.json() as { order?: Partial<Order>; error?: string };
-    if (!response.ok || !result.order) { setNotice(result.error || "Order could not be updated."); return; }
-    setOrders((all) => all.map((item) => item.id === order.id ? { ...item, ...result.order } : item));
-    setNotice(`${order.order_number} updated.`);
+  async function updateOrder(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!fulfillmentOrder) return;
+    setSavingOrder(true);
+    const fields = new FormData(event.currentTarget);
+    const fulfillmentStatus = String(fields.get("fulfillmentStatus") || "");
+    try {
+      const response = await fetch("/api/admin/orders", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: fulfillmentOrder.id, fulfillmentStatus, trackingNumber: fields.get("trackingNumber"), carrier: fields.get("carrier"), trackingUrl: fields.get("trackingUrl") }) });
+      const result = await response.json() as { order?: Partial<Order>; error?: string };
+      if (!response.ok || !result.order) throw new Error(result.error || "Order could not be updated.");
+      setOrders((all) => all.map((item) => item.id === fulfillmentOrder.id ? { ...item, ...result.order } : item));
+      setNotice(fulfillmentStatus === "shipped" ? `${fulfillmentOrder.order_number} marked shipped. The branded tracking email was queued.` : `${fulfillmentOrder.order_number} fulfilment updated to ${fulfillmentStatus}.`);
+      setFulfillmentOrder(null);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Order could not be updated.");
+    } finally {
+      setSavingOrder(false);
+    }
   }
 
   async function reviewCrypto(order: Order, cryptoDecision: "approved" | "rejected") {
@@ -314,7 +325,7 @@ export default function AdminPage() {
             <span><b>{order.order_number}</b><small>{new Date(order.created_at).toLocaleDateString()}</small></span>
             <span><b>{order.customer_name}</b><small>{order.order_items?.map((item) => `${item.product_name} × ${item.quantity}${item.selected_size ? ` (${item.selected_size})` : ""}`).join(", ")}</small></span>
             <span>{order.currency} {Number(order.total).toFixed(2)}</span><span><em>{order.payment_status}</em><small>{order.payment_gateway}</small></span>
-            <span><select value={order.fulfillment_status} onChange={(event) => void updateOrder(order, event.target.value)}><option value="unfulfilled">Unfulfilled</option><option value="processing">Processing</option><option value="shipped">Shipped</option><option value="delivered">Delivered</option><option value="cancelled">Cancelled</option></select>{order.tracking_number && <small>{order.carrier}: {order.tracking_number}</small>}</span>
+            <span className="fulfillment-cell"><em>{order.fulfillment_status}</em>{order.tracking_number && <small>{order.carrier}: {order.tracking_number}</small>}<button type="button" onClick={() => setFulfillmentOrder(order)}>Manage fulfilment</button></span>
             {order.crypto_payments?.map((payment) => <div className="crypto-review" key={payment.id}><div><b>Crypto proof · {payment.network.replaceAll("_", " ").toUpperCase()}</b><small>Sent: {payment.amount_sent} · Reference: {payment.transaction_reference}</small></div><a href={`/api/admin/crypto-proof?id=${payment.id}`} target="_blank" rel="noreferrer">View proof</a>{payment.review_status === "submitted" ? <div><button onClick={() => void reviewCrypto(order, "approved")}>Confirm payment</button><button className="danger" onClick={() => void reviewCrypto(order, "rejected")}>Reject</button></div> : <em>{payment.review_status}</em>}</div>)}
           </div>)}
           {!filteredOrders.length && <p className="admin-empty">No orders match these filters.</p>}
@@ -377,6 +388,19 @@ export default function AdminPage() {
         <label className="product-featured-check"><input name="featured" type="checkbox" value="yes" defaultChecked={editingProduct.featured}/><span><b>Featured product</b><small>Prioritize this design in featured storefront sections.</small></span></label>
         <label>Description<textarea name="description" rows={6} defaultValue={editingProduct.description || ""} maxLength={5000} placeholder="Fabric, fit, finish and suitable occasions."/></label>
         <div className="product-edit-actions"><button type="button" onClick={() => setEditingProduct(null)}>Cancel</button><button className="publish" type="submit" disabled={savingProduct}>{savingProduct ? "Saving changes…" : "Save product changes"}</button></div>
+      </form>
+    </div>}
+    {fulfillmentOrder && <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="fulfilment-title">
+      <form className="product-modal fulfillment-modal" onSubmit={(event) => void updateOrder(event)}>
+        <div><span className="eyebrow">Order fulfilment</span><h2 id="fulfilment-title">Prepare and dispatch</h2><button type="button" aria-label="Close fulfilment editor" onClick={() => setFulfillmentOrder(null)}>×</button></div>
+        <div className="fulfillment-order-summary"><div><small>Order</small><b>{fulfillmentOrder.order_number}</b></div><div><small>Payment</small><b className={`payment-${fulfillmentOrder.payment_status}`}>{fulfillmentOrder.payment_status}</b></div><div><small>Total</small><b>{fulfillmentOrder.currency} {Number(fulfillmentOrder.total).toFixed(2)}</b></div></div>
+        <section className="fulfillment-customer"><h3>Customer and doorstep delivery</h3><p><b>{fulfillmentOrder.customer_name}</b><br/>{fulfillmentOrder.customer_email}{fulfillmentOrder.phone ? ` · ${fulfillmentOrder.phone}` : ""}</p><address>{[fulfillmentOrder.shipping_address?.line1, fulfillmentOrder.shipping_address?.city, fulfillmentOrder.shipping_address?.state, fulfillmentOrder.shipping_address?.postal_code, fulfillmentOrder.shipping_address?.country].filter(Boolean).join(", ")}</address></section>
+        <section className="fulfillment-items"><h3>Pieces to prepare</h3>{fulfillmentOrder.order_items?.map((item, index) => <p key={`${item.product_name}-${index}`}><span>{item.product_name}{item.selected_size ? ` · ${item.selected_size}` : ""}</span><b>× {item.quantity}</b></p>)}</section>
+        <label>Fulfilment status<select name="fulfillmentStatus" defaultValue={fulfillmentOrder.fulfillment_status}><option value="unfulfilled">Unfulfilled</option><option value="processing">Processing · made on request (5–7 working days)</option><option value="shipped">Shipped · send tracking email</option><option value="delivered">Delivered</option><option value="cancelled">Cancelled</option></select></label>
+        <div className="form-split"><label>Carrier<input name="carrier" defaultValue={fulfillmentOrder.carrier || "Fly Logistics"} placeholder="Fly Logistics"/></label><label>Tracking number<input name="trackingNumber" defaultValue={fulfillmentOrder.tracking_number || ""} placeholder="Required when shipped"/></label></div>
+        <label>Secure tracking URL<input name="trackingUrl" type="url" defaultValue={fulfillmentOrder.tracking_url || ""} placeholder="https://www.flylogistics.com.ng/…"/><small>Required when marking an order shipped. The customer receives this link in a branded email.</small></label>
+        {fulfillmentOrder.payment_status !== "paid" && <p className="fulfillment-warning" role="alert">This order is not paid. It cannot be moved to processing, shipped or delivered until payment is verified.</p>}
+        <div className="product-edit-actions"><button type="button" onClick={() => setFulfillmentOrder(null)}>Cancel</button><button className="publish" type="submit" disabled={savingOrder}>{savingOrder ? "Saving fulfilment…" : "Save fulfilment update"}</button></div>
       </form>
     </div>}
   </main>;

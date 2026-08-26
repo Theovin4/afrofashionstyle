@@ -2,13 +2,14 @@ import { isAdmin } from "../../../lib/admin-auth";
 import { createAdminSupabase } from "../../../lib/supabase";
 import { sendCryptoReviewNotification, sendShippingConfirmation } from "../../../lib/notifications";
 import { completeOrder } from "../../../lib/orders";
+import { payloadError, readLimitedJson } from "../../../lib/security";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   if (!(await isAdmin())) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const { data, error } = await createAdminSupabase().from("orders")
-    .select("id,order_number,customer_name,customer_email,currency,total,payment_gateway,payment_status,fulfillment_status,tracking_number,tracking_url,carrier,created_at,order_items(product_name,quantity,selected_size),crypto_payments(id,network,amount_sent,transaction_reference,review_status,review_note,submitted_at)")
+    .select("id,order_number,customer_name,customer_email,phone,shipping_address,currency,total,payment_gateway,payment_status,fulfillment_status,tracking_number,tracking_url,carrier,created_at,order_items(product_name,quantity,selected_size),crypto_payments(id,network,amount_sent,transaction_reference,review_status,review_note,submitted_at)")
     .order("created_at", { ascending: false }).limit(100);
   if (error) return Response.json({ error: "Orders could not be loaded" }, { status: 500 });
   return Response.json({ orders: data });
@@ -16,7 +17,9 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   if (!(await isAdmin())) return Response.json({ error: "Unauthorized" }, { status: 401 });
-  const input = await request.json() as { id?: string; fulfillmentStatus?: string; trackingNumber?: string; trackingUrl?: string; carrier?: string; cryptoDecision?: "approved" | "rejected"; reviewNote?: string };
+  let input: { id?: string; fulfillmentStatus?: string; trackingNumber?: string; trackingUrl?: string; carrier?: string; cryptoDecision?: "approved" | "rejected"; reviewNote?: string };
+  try { input = await readLimitedJson(request, 16_384); } catch (error) { return payloadError(error); }
+  if (!input.id || !/^[0-9a-f-]{36}$/i.test(input.id)) return Response.json({ error: "Invalid order." }, { status: 400 });
   if (input.id && input.cryptoDecision) {
     const supabase = createAdminSupabase();
     const { data: crypto } = await supabase.from("crypto_payments").select("id,order_id,review_status,orders(payment_status,payment_gateway)").eq("order_id", input.id).maybeSingle();
@@ -40,15 +43,26 @@ export async function PATCH(request: Request) {
   }
   const statuses = ["unfulfilled", "processing", "shipped", "delivered", "cancelled"];
   if (!input.id || !statuses.includes(input.fulfillmentStatus || "")) return Response.json({ error: "Invalid order update" }, { status: 400 });
+  const supabase = createAdminSupabase();
+  const { data: currentOrder } = await supabase.from("orders").select("payment_status,fulfillment_status").eq("id", input.id).maybeSingle();
+  if (!currentOrder) return Response.json({ error: "Order was not found." }, { status: 404 });
+  if (["processing", "shipped", "delivered"].includes(input.fulfillmentStatus || "") && currentOrder.payment_status !== "paid") return Response.json({ error: "Only a paid order can enter production, ship or be delivered." }, { status: 409 });
+  const trackingNumber = input.trackingNumber?.trim().slice(0, 160) || null;
+  const carrier = input.carrier?.trim().slice(0, 120) || null;
+  const trackingUrl = input.trackingUrl?.trim() || null;
+  if (trackingUrl) {
+    try { if (new URL(trackingUrl).protocol !== "https:") throw new Error(); } catch { return Response.json({ error: "Enter a valid secure HTTPS tracking URL." }, { status: 400 }); }
+  }
+  if (input.fulfillmentStatus === "shipped" && (!trackingNumber || !carrier || !trackingUrl)) return Response.json({ error: "Carrier, tracking number and secure tracking URL are required before shipping." }, { status: 400 });
   const patch = {
     fulfillment_status: input.fulfillmentStatus,
-    tracking_number: input.trackingNumber?.trim() || null,
-    tracking_url: input.trackingUrl?.trim() || null,
-    carrier: input.carrier?.trim() || null,
+    tracking_number: trackingNumber,
+    tracking_url: trackingUrl,
+    carrier,
   };
-  const { data, error } = await createAdminSupabase().from("orders").update(patch).eq("id", input.id)
+  const { data, error } = await supabase.from("orders").update(patch).eq("id", input.id)
     .select("id,order_number,fulfillment_status,tracking_number,tracking_url,carrier").single();
   if (error) return Response.json({ error: "Order could not be updated" }, { status: 500 });
-  if (input.fulfillmentStatus === "shipped") await sendShippingConfirmation(input.id).catch((notificationError) => console.error("Shipping email failed", notificationError));
+  if (input.fulfillmentStatus === "shipped" && currentOrder.fulfillment_status !== "shipped") await sendShippingConfirmation(input.id).catch((notificationError) => console.error("Shipping email failed", notificationError));
   return Response.json({ order: data });
 }
