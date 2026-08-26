@@ -285,3 +285,20 @@ test("Flutterwave dashboard links are available as a verified backup flow", asyn
   assert.match(verifier, /verifiedEmail !== String\(order\.customer_email\)/);
   assert.match(verifier, /transaction\.amount.*order\.total/);
 });
+
+test("contact enquiries are saved, emailed and have a WhatsApp fallback", async () => {
+  const [contact, enquiries, notifications, css] = await Promise.all([
+    read("app/contact/page.tsx"),
+    read("app/api/enquiries/route.ts"),
+    read("app/lib/notifications.ts"),
+    read("app/globals.css"),
+  ]);
+  assert.doesNotMatch(contact, /<Turnstile action="contact"/);
+  assert.match(contact, /name="website"/);
+  assert.match(contact, /Continue on WhatsApp/);
+  assert.match(enquiries, /sendCustomerEnquiry/);
+  assert.match(enquiries, /whatsappUrl/);
+  assert.match(notifications, /CONTACT_EMAIL_TO/);
+  assert.match(notifications, /reply_to: input\.email/);
+  assert.match(css, /\.contact-honeypot/);
+});

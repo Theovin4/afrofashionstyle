@@ -2,6 +2,7 @@ import { v2 as cloudinary } from "cloudinary";
 import { createPendingOrder, type CheckoutRequest } from "../../../lib/orders";
 import { createAdminSupabase } from "../../../lib/supabase";
 import { enforceRateLimit } from "../../../lib/security";
+import { sendCryptoReviewNotification } from "../../../lib/notifications";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -71,6 +72,7 @@ export async function POST(request: Request) {
       proof_public_id: uploaded.public_id,
     });
     if (error) throw error;
+    await sendCryptoReviewNotification(order.id, "submitted").catch((notificationError) => console.error("Crypto review email failed", { message: notificationError instanceof Error ? notificationError.message : "Unknown error" }));
     const message = `Hello Afro.Fashionstyle, I submitted crypto payment proof for order ${order.order_number}. Network: ${network.replaceAll("_", " ").toUpperCase()}. Amount sent: ${amountSent}. Please confirm my payment.`;
     return Response.json({ orderNumber: order.order_number, whatsappUrl: `https://wa.me/2347049841931?text=${encodeURIComponent(message)}` });
   } catch (error) {

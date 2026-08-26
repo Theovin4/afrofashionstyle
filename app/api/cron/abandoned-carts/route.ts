@@ -1,4 +1,5 @@
 import { createAdminSupabase } from "../../../lib/supabase";
+import { brandedEmail } from "../../../lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
     const formattedSubtotal = Number.isFinite(subtotal) ? subtotal.toFixed(2) : "0.00";
     const response = await fetch("https://api.resend.com/emails", { method: "POST", headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" }, body: JSON.stringify({
       from, to: [cart.email], subject: "Your Afro.Fashionstyle selection is still waiting",
-      html: `<div style="font-family:Arial,sans-serif;color:#33140c;max-width:620px;margin:auto"><h1>Your selection is still waiting.</h1><p>Hi ${customerName}, the pieces you selected are still in your bag.</p><p><b>Bag value: ${currency} ${formattedSubtotal}</b></p><p><a href="https://afro-fashionstyle.vercel.app/shop">Return to your selection</a></p><p style="font-size:11px">You received this one-time reminder because you requested a saved-cart reminder during checkout.</p></div>`,
+      html: brandedEmail(`<h1 style="font-family:Georgia,serif;font-size:34px;line-height:1.1;margin:0 0 20px">Your selection is still waiting.</h1><p>Hi ${customerName}, the pieces you selected are still in your bag.</p><p style="font-size:18px"><b>Bag value: ${currency} ${formattedSubtotal}</b></p><p><a href="https://afro-fashionstyle.vercel.app/shop" style="display:inline-block;background:#e99424;color:#24100b;padding:12px 20px;text-decoration:none;font-weight:bold">Return to your selection</a></p><p style="font-size:11px">You received this one-time reminder because you requested a saved-cart reminder during checkout.</p>`, "Your Afro.Fashionstyle selection is still waiting"),
     }) });
     await supabase.from("abandoned_carts").update({ status: response.ok ? "sent" : "failed", updated_at: new Date().toISOString() }).eq("id", cart.id);
     if (response.ok) sent++;

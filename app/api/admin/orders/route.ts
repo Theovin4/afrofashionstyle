@@ -1,6 +1,6 @@
 import { isAdmin } from "../../../lib/admin-auth";
 import { createAdminSupabase } from "../../../lib/supabase";
-import { sendShippingConfirmation } from "../../../lib/notifications";
+import { sendCryptoReviewNotification, sendShippingConfirmation } from "../../../lib/notifications";
 import { completeOrder } from "../../../lib/orders";
 
 export const dynamic = "force-dynamic";
@@ -35,6 +35,7 @@ export async function PATCH(request: Request) {
     }
     const { error } = await supabase.from("crypto_payments").update({ review_status: input.cryptoDecision, review_note: input.reviewNote?.trim().slice(0, 500) || null, reviewed_at: new Date().toISOString() }).eq("id", crypto.id).eq("review_status", "submitted");
     if (error) return Response.json({ error: "Payment review could not be completed." }, { status: 500 });
+    if (input.cryptoDecision === "rejected") await sendCryptoReviewNotification(input.id, "rejected").catch((notificationError) => console.error("Crypto rejection email failed", { message: notificationError instanceof Error ? notificationError.message : "Unknown error" }));
     return Response.json({ order: { id: input.id, payment_status: input.cryptoDecision === "approved" ? "paid" : "failed", fulfillment_status: input.cryptoDecision === "approved" ? "processing" : "cancelled" }, cryptoDecision: input.cryptoDecision });
   }
   const statuses = ["unfulfilled", "processing", "shipped", "delivered", "cancelled"];
