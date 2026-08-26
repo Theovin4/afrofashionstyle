@@ -91,7 +91,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       <aside className="cart-drawer" aria-label="Shopping bag">
         <header><div><span className="eyebrow">Your selection</span><h2>Shopping bag</h2></div><button onClick={() => setOpen(false)} aria-label="Close">×</button></header>
         <div className="cart-items">
-          {!items.length && <div className="cart-empty"><b>Your bag is empty.</b><p>Browse made-to-order Nigerian womenswear.</p></div>}
+          {!items.length && <div className="cart-empty"><b>Your bag is ready for something unforgettable.</b><p>Explore premium Nigerian dresses, sets and occasion wear.</p></div>}
           {items.map((item) => <article key={`${item.id}-${item.size}`}>
             <div className="cart-thumb">{item.image ? <Image src={item.image} alt="" fill sizes="90px"/> : <span>AF</span>}</div>
             <div><Link href={`/products/${item.slug}`} onClick={() => setOpen(false)}>{item.name}</Link><small>Size: {item.size}</small>

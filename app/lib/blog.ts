@@ -8,7 +8,7 @@ const TOPICS = [
 
 For weddings and celebrations, pair a sculpted Ankara dress with a clean heel and a compact bag. Gold jewellery brings warmth to orange, brown and jewel-toned prints, while silver can sharpen teal and cooler palettes.
 
-Fit matters as much as colour. A defined waist, thoughtful sleeve and hem length create a confident silhouette without competing with the textile. If you are between sizes, send your measurements before ordering because every Afro.Fashionstyle piece is made on request.
+Fit matters as much as colour. A defined waist, thoughtful sleeve and hem length create a confident silhouette without competing with the textile. If you are between sizes, send your measurements before ordering so our team can help you choose confidently.
 
 Complete the look with restraint: one strong earring, a polished shoe and a beauty look that feels like you. Nigerian fashion is not a costume; it is a living design language made to move beautifully through modern life.`,
   },
@@ -30,20 +30,20 @@ Care for Adire gently. Wash cool with a mild detergent, avoid prolonged soaking 
 
 For a modern Nigerian wedding guest look, consider a statement sleeve, a precise neckline or a full skirt—then allow one detail to lead. Ankara and Adire already offer visual richness, so a disciplined silhouette keeps the result premium.
 
-Comfort is part of elegance. Check the finished garment measurements, consider the shoes you will wear and share your bust, waist, hip and height when uncertain. Made-to-order construction gives you the opportunity to plan rather than compromise.
+Comfort is part of elegance. Check the finished garment measurements, consider the shoes you will wear and share your bust, waist, hip and height when uncertain. Thoughtful preparation gives you the opportunity to plan rather than compromise.
 
 Finish with accessories that support the outfit instead of repeating every colour. The goal is a complete point of view: joyful, assured and distinctly yours.`,
   },
   {
-    title: "How to Measure for a Made-to-Order African Dress",
-    excerpt: "A practical measurement guide for ordering Nigerian and African-inspired dresses online with greater confidence.",
-    content: `Accurate measurements make online made-to-order shopping simpler. Use a soft measuring tape over light clothing and stand naturally without pulling the tape too tightly.
+    title: "How to Measure for an African Dress Online",
+    excerpt: "A practical measurement guide for choosing Nigerian and African-inspired dresses online with greater confidence.",
+    content: `Accurate measurements make online dress shopping simpler. Use a soft measuring tape over light clothing and stand naturally without pulling the tape too tightly.
 
 Measure the fullest part of your bust, the narrowest point of your natural waist and the fullest part of your hips. For dress length, measure from the highest shoulder point to your preferred hem. Your height and usual US or UK dress size add helpful context.
 
 Ask someone to assist when possible, especially for shoulder width, sleeve length and back measurements. Record each number twice before sending it.
 
-Afro.Fashionstyle encourages customers to forward measurements whenever they are unsure of size. Because garments are made on request and are not eligible for returns or refunds, a careful fit check before production is always worthwhile.`,
+Afro.Fashionstyle encourages customers to forward measurements whenever they are unsure of size. Because outfits are final sale, a careful fit check before preparation is always worthwhile.`,
   },
 ] as const;
 
@@ -52,7 +52,14 @@ export function slugify(value: string) {
 }
 
 export function productDescription(name: string, category: string) {
-  return `${name} is a made-to-order ${category.toLowerCase()} design by Afro.Fashionstyle. It is produced in Lagos for weddings, celebrations and occasion dressing, with tracked delivery available to customers in the USA and UK. Production takes 5–7 working days. If you are unsure of your size, send your bust, waist, hip and height measurements before ordering.`;
+  const productType = ({
+    "Dresses": "Nigerian dress",
+    "Two piece": "coordinated two-piece outfit",
+    "Lace Outfit": "Nigerian lace outfit",
+    "Other Luxury Designs": "luxury Nigerian fashion design",
+    "Accessories": "African-inspired accessory",
+  } as Record<string, string>)[category] || "Nigerian fashion design";
+  return `${name} is a premium ${productType} by Afro.Fashionstyle, created for celebrations and confident occasion dressing. Expressive Nigerian influence and a distinctive silhouette give the piece memorable presence, with tracked delivery across the USA and UK. Allow 5–7 working days before dispatch, and send your measurements if you would like help choosing the right size.`;
 }
 
 export async function publishDailyBlogPost() {

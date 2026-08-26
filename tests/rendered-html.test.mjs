@@ -199,10 +199,28 @@ test("storefront sales copy and administrator actions remain launch-visible", as
     read("app/page.tsx"),
     read("app/globals.css"),
   ]);
-  assert.match(home, /Nigerian elegance/);
-  assert.match(home, /crafted to your measurements and delivered with tracking/);
+  assert.match(home, /Own the room/);
+  assert.match(home, /weddings, celebrations and unforgettable entrances/);
   assert.match(css, /\.admin-shell \.admin-header-actions>button\{[^}]+color:#1b0d08!important/);
   assert.match(css, /\.admin-shell \.admin-signout button\{[^}]+color:#ffe7e3!important/);
+});
+
+test("storefront copy and SEO target Nigerian fashion shoppers in the USA and UK", async () => {
+  const [layout, home, shop, product, detail, catalog, header, footer, blog, css] = await Promise.all([
+    read("app/layout.tsx"), read("app/page.tsx"), read("app/shop/page.tsx"),
+    read("app/products/[slug]/page.tsx"), read("app/products/[slug]/product-detail.tsx"),
+    read("app/lib/catalog.ts"), read("app/components/premium-header.tsx"),
+    read("app/components/site-footer.tsx"), read("app/lib/blog.ts"), read("app/globals.css"),
+  ]);
+  const publicCopy = [layout, home, shop, product, detail, catalog, header, footer, blog].join("\n");
+  assert.doesNotMatch(publicCopy, /made.?to.?order|made on request|made after you order/i);
+  assert.match(layout, /Nigerian Dresses & African Fashion/);
+  assert.match(layout, /hasMerchantReturnPolicy/);
+  assert.match(product, /BreadcrumbList/);
+  assert.match(product, /PeopleAudience/);
+  assert.match(product, /itemCondition/);
+  assert.match(catalog, /tracked delivery across the USA and UK/);
+  assert.match(css, /\.announcement\{padding:7px 12px;font-size:9px/);
 });
 
 test("checkout and customer forms use the premium secure form system", async () => {
