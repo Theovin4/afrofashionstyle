@@ -14,8 +14,9 @@ export function SiteFooter() {
   return <footer>
     <div className="footer-brand"><BrandLogo variant="footer" decorative/><p>Modern Nigerian womenswear for confident dressing, celebrations and memorable occasions across the USA and UK.</p>{supportEmail && <a href={`mailto:${supportEmail}`}>{supportEmail}</a>}</div>
     <div><b>Shop</b>{CATEGORY_DETAILS.map((category) => <Link href={`/collections/${category.slug}`} key={category.slug}>{category.name}</Link>)}</div>
-    <div><b>Care</b><Link href="/size-guide">Size guide</Link><Link href="/shipping-returns">Delivery &amp; order policy</Link><Link href="/orders/track">Track an order</Link><Link href="/garment-care">Garment care</Link></div>
+    <div><b>Delivery</b><Link href="/usa">Shop from the USA</Link><Link href="/uk">Shop from the UK</Link><Link href="/size-guide">Size guide</Link><Link href="/shipping-returns">Delivery &amp; order policy</Link><Link href="/orders/track">Track an order</Link><Link href="/garment-care">Garment care</Link></div>
     <div><b>Follow</b>{socialLinks.map(([label, url]) => <a href={url} key={label} target="_blank" rel="noreferrer">{label}</a>)}<a href="https://wa.me/2347049841931" target="_blank" rel="noreferrer">WhatsApp</a><Link href="/contact" data-meta-contact="enquiry">Contact us</Link><Link href="/journal">Journal</Link></div>
+    <p className="footer-shipping">We ship worldwide. USA: 5–7 working days. UK: 3–7 working days.</p>
     <small>© 2026 Afro.Fashionstyle · <Link href="/privacy">Privacy</Link> · <Link href="/terms">Terms</Link> · Accessibility</small>
   </footer>;
 }

@@ -214,7 +214,7 @@ test("storefront copy and SEO target Nigerian fashion shoppers in the USA and UK
   ]);
   const publicCopy = [layout, home, shop, product, detail, catalog, header, footer, blog].join("\n");
   assert.doesNotMatch(publicCopy, /made.?to.?order|made on request|made after you order/i);
-  assert.match(layout, /Nigerian Dresses & African Fashion/);
+  assert.match(layout, /Traditional Nigerian Clothing Shipped to USA & UK/);
   assert.match(layout, /hasMerchantReturnPolicy/);
   assert.match(product, /BreadcrumbList/);
   assert.match(product, /PeopleAudience/);
@@ -343,4 +343,31 @@ test("Commerce Studio has a guarded Fly Logistics fulfilment workflow", async ()
   assert.match(orders, /sendShippingConfirmation/);
   assert.match(notifications, /Track your order/);
   assert.match(css, /\.fulfillment-modal/);
+});
+
+test("regional SEO pages and revised shipping tiers stay synchronized", async () => {
+  const [layout, usa, uk, market, sitemap, footer, checkout, orders, shipping, product, plan, migration] = await Promise.all([
+    read("app/layout.tsx"), read("app/usa/page.tsx"), read("app/uk/page.tsx"),
+    read("app/components/market-landing.tsx"), read("app/sitemap.ts"), read("app/components/site-footer.tsx"),
+    read("app/checkout/page.tsx"), read("app/lib/orders.ts"), read("app/lib/shipping.ts"),
+    read("app/products/[slug]/page.tsx"), read("app/lib/seo-blog-plan.ts"),
+    read("supabase/migrations/20260830132412_revise_shipping_tiers.sql"),
+  ]);
+  assert.match(layout, /"en-US": "\/usa"/);
+  assert.match(layout, /"en-GB": "\/uk"/);
+  assert.match(layout, /"OnlineStore"/);
+  assert.match(usa, /African Fashion in USA/);
+  assert.match(uk, /African Fashion in UK/);
+  assert.match(market, /lg:grid-cols-2/);
+  assert.match(sitemap, /`\$\{baseUrl\}\/usa`/);
+  assert.match(sitemap, /`\$\{baseUrl\}\/uk`/);
+  assert.match(footer, /USA: 5–7 working days\. UK: 3–7 working days/);
+  assert.match(checkout, /calculateTieredShipping/);
+  assert.match(orders, /calculateTieredShipping/);
+  assert.match(shipping, /itemCount >= 3/);
+  assert.match(shipping, /itemCount - 3/);
+  assert.match(migration, /second_item_rate = 35\.50/);
+  assert.match(product, /Product/);
+  assert.match(product, /summary_large_image/);
+  assert.equal((plan.match(/targetWords: 1000,/g) || []).length, 10);
 });

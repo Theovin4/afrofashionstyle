@@ -9,21 +9,21 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://afro-fashionstyle.vercel.app"),
-  title: { default: "Afro.Fashionstyle | Nigerian Dresses & African Fashion", template: "%s | Afro.Fashionstyle" },
-  description: "Shop premium Nigerian dresses, Ankara styles, two-piece sets and lace occasion wear for women, with tracked delivery across the USA and UK.",
+  title: { default: "Afro Fashion Style - Ankara, Lace, Adire, Aso Ebi, George, Gele, Accessories & Traditional Nigerian Clothing Shipped to USA & UK", template: "%s | Afro.Fashionstyle" },
+  description: "Shop Afro Fashion Style for Ankara dresses, Nigerian lace, Adire, Aso Ebi, George, gele, traditional clothing and accessories, with secure payment and tracked USA and UK delivery.",
   keywords: ["Nigerian dresses for women", "African fashion USA", "Ankara dresses online", "Nigerian occasion wear UK", "African two piece outfits", "Nigerian lace dresses"],
   openGraph: { title: "Afro.Fashionstyle — Premium Nigerian Fashion for Women", description: "Statement Nigerian dresses, coordinated sets, lace occasion wear and accessories with tracked USA and UK delivery.", images: ["/og.webp"], type: "website", locale: "en_US", alternateLocale: ["en_GB"] },
   twitter: { card: "summary_large_image", title: "Afro.Fashionstyle — Wear Your Story", images: ["/og.webp"] },
   icons: { icon: "/afro-fashionstyle-monogram.png", apple: "/afro-fashionstyle-monogram.png" },
-  alternates: { canonical: "/" },
+  alternates: { canonical: "/", languages: { "en-US": "/usa", "en-GB": "/uk", "x-default": "/" } },
   verification: { google: "XBN4mZJ1-rjDyXZAObhygPIIh2bftEzrW_O_W4CehNo" },
   other: { "google-adsense-account": "ca-pub-7864399969744116" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const schema = {
-    "@context": "https://schema.org", "@type": "ClothingStore", name: "Afro.Fashionstyle",
-    url: "https://afro-fashionstyle.vercel.app", logo: "https://afro-fashionstyle.vercel.app/afro-fashionstyle-monogram.png", areaServed: ["US", "GB"],
+    "@context": "https://schema.org", "@type": ["OnlineStore", "ClothingStore"], name: "Afro.Fashionstyle",
+    url: "https://afro-fashionstyle.vercel.app", logo: "https://afro-fashionstyle.vercel.app/afro-fashionstyle-monogram.png", areaServed: [{ "@type": "Country", name: "US" }, { "@type": "Country", name: "GB" }],
     description: "Premium Nigerian womenswear, Ankara dresses, lace occasion wear and coordinated sets designed in Lagos for women in the USA and UK.",
     address: { "@type": "PostalAddress", addressLocality: "Lekki", addressRegion: "Lagos", addressCountry: "NG" },
     email: "afrofashionclub@gmail.com", telephone: "+2347049841931",

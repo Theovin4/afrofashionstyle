@@ -15,11 +15,15 @@ async function getProduct(slug: string) {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const product = await getProduct((await params).slug);
   if (!product) return {};
-  const description = product.description || `Shop ${product.name}, a premium Nigerian ${product.category.toLowerCase()} design by Afro.Fashionstyle with tracked USA and UK delivery.`;
+  const sourceDescription = product.description || `Shop ${product.name}, a premium Nigerian ${product.category.toLowerCase()} design by Afro.Fashionstyle with tracked USA and UK delivery.`;
+  const description = sourceDescription.length > 158 ? `${sourceDescription.slice(0, 155).trimEnd()}…` : sourceDescription;
+  const image = product.product_images?.[0]?.secure_url || "/og.webp";
   return {
-    title: product.name, description,
+    title: `${product.name} | African Fashion USA & UK`, description,
+    keywords: [product.name, `${product.category} USA`, `${product.category} UK`, "Nigerian fashion", "African clothing"],
     alternates: { canonical: `/products/${product.slug}` },
-    openGraph: { title: product.name, description, type: "website", images: product.product_images?.[0]?.secure_url ? [product.product_images[0].secure_url] : ["/og.webp"] },
+    openGraph: { title: `${product.name} | Afro.Fashionstyle`, description, type: "website", url: `/products/${product.slug}`, siteName: "Afro.Fashionstyle", locale: "en_US", alternateLocale: ["en_GB"], images: [{ url: image, alt: `${product.name} by Afro.Fashionstyle` }] },
+    twitter: { card: "summary_large_image", title: `${product.name} | Afro.Fashionstyle`, description, images: [image] },
   };
 }
 
@@ -34,7 +38,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     "@context": "https://schema.org", "@type": "Product", name: product.name, description: productDescriptionText,
     image: product.product_images?.map((image) => image.secure_url), sku: product.id, brand: { "@type": "Brand", name: "Afro.Fashionstyle" },
     category: product.category, audience: { "@type": "PeopleAudience", suggestedGender: "female" },
-    offers: { "@type": "Offer", priceCurrency: "USD", price: Number(product.price_usd).toFixed(2), itemCondition: "https://schema.org/NewCondition", availability: product.stock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock", url: `https://afro-fashionstyle.vercel.app/products/${product.slug}`, seller: { "@type": "Organization", name: "Afro.Fashionstyle" }, shippingDetails: [{ "@type": "OfferShippingDetails", shippingDestination: { "@type": "DefinedRegion", addressCountry: "US" }, shippingRate: { "@type": "MonetaryAmount", value: "50.00", currency: "USD" }, deliveryTime: { "@type": "ShippingDeliveryTime", handlingTime: { "@type": "QuantitativeValue", minValue: 5, maxValue: 7, unitCode: "DAY" } } }] },
+    offers: { "@type": "Offer", priceCurrency: "USD", price: Number(product.price_usd).toFixed(2), itemCondition: "https://schema.org/NewCondition", availability: product.stock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock", url: `https://afro-fashionstyle.vercel.app/products/${product.slug}`, seller: { "@type": "Organization", name: "Afro.Fashionstyle" }, shippingDetails: [{ "@type": "OfferShippingDetails", shippingDestination: { "@type": "DefinedRegion", addressCountry: "US" }, shippingRate: { "@type": "MonetaryAmount", value: "50.00", currency: "USD" }, deliveryTime: { "@type": "ShippingDeliveryTime", transitTime: { "@type": "QuantitativeValue", minValue: 5, maxValue: 7, unitCode: "DAY" } } }] },
     hasMerchantReturnPolicy: [{ "@type": "MerchantReturnPolicy", applicableCountry: ["US", "GB"], returnPolicyCategory: "https://schema.org/MerchantReturnNotPermitted" }],
   };
   const breadcrumb = { "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "Shop", item: "https://afro-fashionstyle.vercel.app/shop" }, { "@type": "ListItem", position: 2, name: product.category, item: `https://afro-fashionstyle.vercel.app/collections/${product.category.toLowerCase().replace(/[^a-z0-9]+/g, "-")}` }, { "@type": "ListItem", position: 3, name: product.name }] };

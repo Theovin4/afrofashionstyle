@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createAdminSupabase } from "./supabase";
 import { sendOrderConfirmation } from "./notifications";
+import { calculateTieredShipping } from "./shipping";
 
 export type CheckoutCustomer = {
   email: string;
@@ -74,7 +75,7 @@ export async function createPendingOrder(
   const subtotal = items.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
   const { data: shippingRule } = await supabase.from("shipping_rules").select("rate,free_over,second_item_rate,additional_item_rate").eq("country", input.customer.country).eq("currency", input.currency).eq("active", true).limit(1).maybeSingle();
   const itemCount = input.items.length;
-  const tieredShipping = shippingRule ? Number(shippingRule.rate) + (itemCount >= 2 ? Number(shippingRule.second_item_rate || 0) : 0) + Math.max(0, itemCount - 2) * Number(shippingRule.additional_item_rate || 0) : 0;
+  const tieredShipping = calculateTieredShipping(shippingRule, itemCount);
   const shippingTotal = shippingRule && (shippingRule.free_over === null || subtotal < Number(shippingRule.free_over)) ? tieredShipping : 0;
   let discountTotal = 0;
   let discountCode: string | null = null;

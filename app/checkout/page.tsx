@@ -6,6 +6,7 @@ import { Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
 import { attributionData, hasMarketingConsent, trackMetaWithUser } from "../components/meta-pixel";
 import { BrandLogo } from "../components/brand-logo";
 import { showActionToast } from "../components/action-toast";
+import { calculateTieredShipping } from "../lib/shipping";
 
 type Product = { id: string; name: string; category: string; price_usd: number; price_gbp: number; stock: number };
 type Customer = { email: string; phone: string; firstName: string; lastName: string; address: string; state: string; city: string; zip: string; country: "US" | "GB" };
@@ -93,7 +94,7 @@ function CheckoutContent() {
   const bundleTarget = currency === "GBP" ? 260 * usdToGbp : 260;
   const bundleDiscount = ankaraPrices.reduce((sum, price, index) => index % 2 === 0 && ankaraPrices[index + 1] !== undefined ? sum + Math.max(0, price + ankaraPrices[index + 1] - bundleTarget) : sum, 0);
   const shippingRule = shippingRules.find((rule) => rule.country === customer?.country && rule.currency === currency);
-  const tieredShipping = shippingRule ? Number(shippingRule.rate) + (itemIds.length >= 2 ? Number(shippingRule.second_item_rate || 0) : 0) + Math.max(0, itemIds.length - 2) * Number(shippingRule.additional_item_rate || 0) : 0;
+  const tieredShipping = calculateTieredShipping(shippingRule, itemIds.length);
   const shippingTotal = shippingRule && (shippingRule.free_over === null || total < Number(shippingRule.free_over)) ? tieredShipping : 0;
   const taxableTotal = Math.max(0, total - discountTotal - bundleDiscount);
   const taxTotal = Math.round(taxableTotal * .05 * 100) / 100;
