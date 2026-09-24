@@ -16,6 +16,21 @@ const cryptoAddresses = {
   btc: ["Bitcoin (BTC)", "17Z41xvrwHRJtNNtFv1apomwHn6yAjKFnQ"],
 } as const;
 
+const paymentMethods = [
+  { name: "PayPal", mark: "P", description: "PayPal balance or linked card" },
+  { name: "Flutterwave", mark: "F", description: "Secure card and local checkout" },
+  { name: "Crypto", mark: "₿", description: "USDT or Bitcoin · proof reviewed" },
+] as const;
+
+function formatMoney(currency: string, value: number) {
+  return new Intl.NumberFormat(currency === "GBP" ? "en-GB" : "en-US", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
 export function PaymentLinkCheckout({ token }: { token: string }) {
   const [details, setDetails] = useState<LinkDetails | null>(null);
   const [error, setError] = useState("");
@@ -57,10 +72,11 @@ export function PaymentLinkCheckout({ token }: { token: string }) {
   if (error && !details) return <main className="status-page"><section className="status-card"><BrandLogo variant="commerce"/><span className="eyebrow">Secure payment</span><h1>Link unavailable.</h1><p>{error}</p><Link className="button primary" href="/contact">Contact support</Link></section></main>;
   if (!details) return <main className="status-page"><section className="status-card"><BrandLogo variant="commerce"/><p>Preparing your secure order…</p></section></main>;
   if (details.status !== "active") return <main className="status-page"><section className="status-card"><BrandLogo variant="commerce"/><span className="eyebrow">Order {details.order.orderNumber}</span><h1>{details.status === "paid" ? "Payment received." : "Link unavailable."}</h1><p>{details.status === "paid" ? "This order has already been paid. Thank you." : "This secure payment link has expired or was withdrawn."}</p><Link className="button primary" href="/contact">Contact support</Link></section></main>;
-  return <main className="social-payment-page"><header className="commerce-header"><BrandLogo variant="commerce"/><span>Private secure payment</span></header><div className="social-payment-layout">
-    <section className="social-payment-form"><span className="eyebrow">Prepared for {details.order.customerName}</span><h1>Review and pay.</h1><p>Your total is locked to this private link. Afro.Fashionstyle verifies payment before your order moves to preparation.</p>
-      <div className="gateway-selector" role="group" aria-label="Select payment method">{(["PayPal","Flutterwave","Crypto"] as const).map((method) => <button type="button" key={method} className={gateway === method ? "active" : ""} aria-pressed={gateway === method} onClick={() => setGateway(method)}><b>{method}</b><span>{method === "Crypto" ? "Proof reviewed by our team" : "Secure provider checkout"}</span></button>)}</div>
-      {gateway !== "Crypto" ? <button className="checkout-submit" type="button" disabled={busy} onClick={() => void pay()}>{busy ? `Opening ${gateway}…` : `Pay ${details.order.currency} ${details.order.total.toFixed(2)} with ${gateway} →`}</button> : <form className="payment-link-crypto" onSubmit={(event) => void submitCrypto(event)}>
+  return <main className="social-payment-page"><header className="commerce-header social-payment-header"><BrandLogo variant="commerce"/><span><i aria-hidden="true">✓</i> Private secure payment</span></header><div className="social-payment-layout">
+    <section className="social-payment-form"><span className="eyebrow">Prepared for {details.order.customerName}</span><h1>Review and pay.</h1><p>Choose your preferred secure payment method. Your total is locked to this private order link.</p>
+      <div className="payment-link-total"><span>Amount due</span><strong>{formatMoney(details.order.currency, details.order.total)}</strong></div>
+      <div className="gateway-selector payment-link-methods" role="group" aria-label="Select payment method">{paymentMethods.map((method) => <button type="button" key={method.name} className={gateway === method.name ? "active" : ""} aria-pressed={gateway === method.name} onClick={() => setGateway(method.name)}><i className={`payment-method-mark payment-method-${method.name.toLowerCase()}`} aria-hidden="true">{method.mark}</i><span className="payment-method-copy"><b>{method.name}</b><span>{method.description}</span></span><i className="payment-method-check" aria-hidden="true">✓</i></button>)}</div>
+      {gateway !== "Crypto" ? <button className="checkout-submit social-pay-button" type="button" disabled={busy} onClick={() => void pay()}>{busy ? `Opening ${gateway}…` : <>Pay {formatMoney(details.order.currency, details.order.total)} with {gateway}<span aria-hidden="true">→</span></>}</button> : <form className="payment-link-crypto" onSubmit={(event) => void submitCrypto(event)}>
         <label>Network<select value={network} onChange={(event) => setNetwork(event.target.value as keyof typeof cryptoAddresses)}>{Object.entries(cryptoAddresses).map(([key, [label]]) => <option value={key} key={key}>{label}</option>)}</select></label>
         <div className="crypto-address"><small>Send to this exact address</small><code>{cryptoAddresses[network][1]}</code></div>
         <label>Amount and asset sent<input name="amountSent" required placeholder="e.g. 250 USDT"/></label><label>Transaction hash or reference<input name="transactionReference" required minLength={6}/></label><label>Proof of payment<input name="proof" type="file" accept="image/jpeg,image/png,image/webp" required/></label>
@@ -68,6 +84,6 @@ export function PaymentLinkCheckout({ token }: { token: string }) {
       </form>}
       {error && <p className="payment-error" role="alert">{error}</p>}<div className="secure-box"><b>Protected checkout</b><span>Amounts are verified server-side. Card details are never stored by Afro.Fashionstyle.</span></div>
     </section>
-    <aside className="social-payment-summary"><span className="eyebrow">Order {details.order.orderNumber}</span><h2>Order summary</h2>{details.order.items.map((item, index) => <div className="social-payment-item" key={`${item.product_name}-${index}`}><span><b>{item.product_name}</b><small>{item.selected_size || "Custom order"} · Qty {item.quantity}</small></span><strong>{details.order.currency} {(Number(item.unit_price) * item.quantity).toFixed(2)}</strong></div>)}<dl><div><dt>Order amount</dt><dd>{details.order.currency} {details.order.subtotal.toFixed(2)}</dd></div><div><dt>Delivery</dt><dd>{details.order.currency} {details.order.delivery.toFixed(2)}</dd></div>{details.order.tax > 0 && <div><dt>Tax</dt><dd>{details.order.currency} {details.order.tax.toFixed(2)}</dd></div>}<div className="social-payment-total"><dt>Total</dt><dd>{details.order.currency} {details.order.total.toFixed(2)}</dd></div></dl><small>Link expires {new Date(details.expiresAt).toLocaleDateString()}.</small></aside>
+    <aside className="social-payment-summary"><span className="eyebrow">Order {details.order.orderNumber}</span><h2>Order summary</h2>{details.order.items.map((item, index) => <div className="social-payment-item" key={`${item.product_name}-${index}`}><span><b>{item.product_name}</b><small>{item.selected_size || "Custom order"} · Qty {item.quantity}</small></span><strong>{formatMoney(details.order.currency, Number(item.unit_price) * item.quantity)}</strong></div>)}<dl><div><dt>Order amount</dt><dd>{formatMoney(details.order.currency, details.order.subtotal)}</dd></div><div><dt>Delivery</dt><dd>{formatMoney(details.order.currency, details.order.delivery)}</dd></div>{details.order.tax > 0 && <div><dt>Tax</dt><dd>{formatMoney(details.order.currency, details.order.tax)}</dd></div>}<div className="social-payment-total"><dt>Total</dt><dd>{formatMoney(details.order.currency, details.order.total)}</dd></div></dl><small className="payment-link-expiry">Secure link expires {new Date(details.expiresAt).toLocaleDateString()}.</small></aside>
   </div></main>;
 }
