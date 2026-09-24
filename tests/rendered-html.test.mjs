@@ -95,8 +95,8 @@ test("indexing uses server-rendered products and consolidates duplicate journal 
   assert.match(sitemap, /seenTitles/);
   assert.match(journalPost, /permanentRedirect/);
   assert.match(journalPost, /getCanonicalPost/);
-  assert.match(publisher, /eq\("title", topic\.title\)/);
-  assert.doesNotMatch(publisher, /dateKey/);
+  assert.match(publisher, /Daily edition already published/);
+  assert.match(publisher, /slugify\(plan\.title\).*utcDate/);
 });
 
 test("Turnstile stays secure without covering the newsletter form", async () => {
@@ -370,4 +370,44 @@ test("regional SEO pages and revised shipping tiers stay synchronized", async ()
   assert.match(product, /Product/);
   assert.match(product, /summary_large_image/);
   assert.equal((plan.match(/targetWords: 1000,/g) || []).length, 10);
+});
+
+test("administrator social payment links are private, amount-locked and use verified gateways", async () => {
+  const [admin, adminApi, publicApi, linkPage, linkLib, paypal, flutterwave, crypto, migration] = await Promise.all([
+    read("app/admin/page.tsx"), read("app/api/admin/payment-links/route.ts"), read("app/api/payment-links/[token]/route.ts"),
+    read("app/pay/[token]/payment-link-checkout.tsx"), read("app/lib/payment-links.ts"), read("app/api/paypal/orders/route.ts"),
+    read("app/api/flutterwave/checkout/route.ts"), read("app/api/crypto/checkout/route.ts"),
+    read("supabase/migrations/20260923090000_add_secure_social_payment_links.sql"),
+  ]);
+  assert.match(admin, /Social payment links/);
+  assert.match(adminApi, /isAdmin/);
+  assert.match(linkLib, /createHash\("sha256"\)/);
+  assert.match(linkLib, /subtotal \+ shipping \+ tax/);
+  assert.match(publicApi, /enforceRateLimit/);
+  assert.match(linkPage, /PayPal.*Flutterwave.*Crypto/s);
+  assert.match(paypal, /preparePaymentLinkOrder/);
+  assert.match(flutterwave, /preparePaymentLinkOrder/);
+  assert.match(crypto, /paymentLinkToken/);
+  assert.match(migration, /enable row level security/);
+  assert.match(migration, /Deny public payment link access/);
+});
+
+test("daily journal publishing is idempotent and does not recycle duplicate URLs", async () => {
+  const [blog, cron, config, adminBlog] = await Promise.all([
+    read("app/lib/blog.ts"), read("app/api/cron/daily-blog/route.ts"), read("vercel.json"), read("app/api/admin/blog/route.ts"),
+  ]);
+  assert.match(blog, /Daily edition already published/);
+  assert.match(blog, /utcDate/);
+  assert.match(blog, /Published the next administrator-reviewed draft/);
+  assert.match(cron, /process\.env\.CRON_SECRET/);
+  assert.match(cron, /`Bearer \$\{secret\}`/);
+  assert.match(config, /api\/cron\/daily-blog/);
+  assert.match(adminBlog, /publish_daily/);
+});
+
+test("floating WhatsApp support uses the supplied branded image asset", async () => {
+  const [actions, css] = await Promise.all([read("app/components/contact-actions.tsx"), read("app/globals.css")]);
+  assert.match(actions, /whatsapp-brand-icon\.png/);
+  assert.match(actions, /Chat on WhatsApp/);
+  assert.match(css, /\.whatsapp-icon/);
 });

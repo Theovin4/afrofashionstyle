@@ -149,11 +149,14 @@ export async function createPendingOrder(
 }
 
 export async function completeOrder(orderId: string, paymentReference: string) {
-  const { data, error } = await createAdminSupabase().rpc("complete_paid_order", {
+  const supabase = createAdminSupabase();
+  const { data, error } = await supabase.rpc("complete_paid_order", {
     p_order_id: orderId,
     p_payment_reference: paymentReference,
   });
   if (error) throw error;
+  await supabase.from("payment_links").update({ status: "paid", used_at: new Date().toISOString() })
+    .eq("order_id", orderId).eq("status", "active");
   await sendOrderConfirmation(orderId).catch((notificationError) => console.error("Order confirmation email failed", notificationError));
   return data;
 }

@@ -3,6 +3,7 @@ import { createPendingOrder, type CheckoutRequest } from "../../../lib/orders";
 import { getPayPalAccessToken, paypalBaseUrl } from "../../../lib/paypal";
 import { createAdminSupabase } from "../../../lib/supabase";
 import { enforceRateLimit, payloadError, readLimitedJson } from "../../../lib/security";
+import { preparePaymentLinkOrder } from "../../../lib/payment-links";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,12 +12,15 @@ export async function POST(request: Request) {
   const limited = await enforceRateLimit(request, "paypal-checkout", 10, 15 * 60);
   if (limited) return limited;
   try {
-    const input = await readLimitedJson<CheckoutRequest>(request, 32_768);
-    const { order } = await createPendingOrder(input, "paypal", {
-      clientIp: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim(),
-      userAgent: request.headers.get("user-agent") || undefined,
-      sourceUrl: `${new URL(request.url).origin}/checkout`,
-    });
+    const input = await readLimitedJson<CheckoutRequest & { paymentLinkToken?: string }>(request, 32_768);
+    const prepared = input.paymentLinkToken
+      ? await preparePaymentLinkOrder(input.paymentLinkToken, "paypal")
+      : await createPendingOrder(input, "paypal", {
+          clientIp: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim(),
+          userAgent: request.headers.get("user-agent") || undefined,
+          sourceUrl: `${new URL(request.url).origin}/checkout`,
+        });
+    const order = prepared.order;
     const accessToken = await getPayPalAccessToken();
     const origin = new URL(request.url).origin;
     const response = await fetch(`${paypalBaseUrl()}/v2/checkout/orders`, {

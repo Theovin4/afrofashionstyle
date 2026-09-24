@@ -19,6 +19,7 @@ type Operations = {
   settings: Record<string, Record<string, string>>;
 };
 type BlogPost = { id: string; title: string; slug: string; excerpt: string; content: string; status: string; published_at?: string };
+type PaymentLink = { id: string; status: string; expires_at: string; created_at: string; payment_url?: string; orders?: { order_number: string; customer_name: string; currency: string; total: number; payment_status: string } | Array<{ order_number: string; customer_name: string; currency: string; total: number; payment_status: string }> };
 
 const isoDate = (date: Date) => date.toISOString().slice(0, 10);
 const defaultReportStart = () => { const date = new Date(); date.setDate(date.getDate() - 29); return isoDate(date); };
@@ -55,6 +56,9 @@ export default function AdminPage() {
   const [postStatus, setPostStatus] = useState("all");
   const [reportStart, setReportStart] = useState(defaultReportStart);
   const [reportEnd, setReportEnd] = useState(() => isoDate(new Date()));
+  const [paymentLinks, setPaymentLinks] = useState<PaymentLink[]>([]);
+  const [generatedPaymentUrl, setGeneratedPaymentUrl] = useState("");
+  const [generatingPaymentLink, setGeneratingPaymentLink] = useState(false);
 
   useEffect(() => {
     if (!notice || notice.includes("…")) return;
@@ -149,6 +153,15 @@ export default function AdminPage() {
     else setNotice(result.error || "Post could not be created.");
   }
 
+  async function publishToday() {
+    setNotice("Publishing today’s journal edition…");
+    const response = await fetch("/api/admin/blog", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "publish_daily" }) });
+    const result = await response.json() as { post?: BlogPost; error?: string; reason?: string };
+    if (!response.ok) { setNotice(result.error || "Today’s journal edition could not be published."); return; }
+    await loadPosts();
+    setNotice(result.reason === "Daily edition already published" ? "Today’s journal edition is already live." : "Today’s journal edition is now live.");
+  }
+
   async function blogAction(post: BlogPost, action: "edit" | "duplicate" | "delete" | "publish") {
     let response: Response;
     if (action === "delete") {
@@ -177,6 +190,33 @@ export default function AdminPage() {
   }
 
   useEffect(() => { queueMicrotask(() => void loadOperations()); }, []);
+
+  async function loadPaymentLinks() {
+    const response = await fetch("/api/admin/payment-links", { cache: "no-store" });
+    if (response.ok) setPaymentLinks(((await response.json()) as { links: PaymentLink[] }).links);
+  }
+  useEffect(() => { queueMicrotask(() => void loadPaymentLinks()); }, []);
+
+  async function generatePaymentLink(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setGeneratingPaymentLink(true); setGeneratedPaymentUrl("");
+    const fields = Object.fromEntries(new FormData(event.currentTarget).entries());
+    try {
+      const response = await fetch("/api/admin/payment-links", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(fields) });
+      const result = await response.json() as { link?: PaymentLink & { payment_url?: string }; error?: string };
+      if (!response.ok || !result.link?.payment_url) throw new Error(result.error || "Payment link could not be generated.");
+      setGeneratedPaymentUrl(result.link.payment_url); setPaymentLinks((all) => [result.link!, ...all]);
+      setNotice("Branded payment link generated successfully. Copy it and send it privately to your customer.");
+      event.currentTarget.reset();
+    } catch (error) { setNotice(error instanceof Error ? error.message : "Payment link could not be generated."); }
+    finally { setGeneratingPaymentLink(false); }
+  }
+
+  async function revokePaymentLink(id: string) {
+    if (!window.confirm("Revoke this payment link? The customer will no longer be able to use it.")) return;
+    const response = await fetch("/api/admin/payment-links", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id, status: "revoked" }) });
+    setNotice(response.ok ? "Payment link revoked." : "Payment link could not be revoked.");
+    if (response.ok) setPaymentLinks((all) => all.map((link) => link.id === id ? { ...link, status: "revoked" } : link));
+  }
 
   async function operation(payload: Record<string, unknown>) {
     const response = await fetch("/api/admin/operations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
@@ -281,7 +321,7 @@ export default function AdminPage() {
     <aside className="admin-nav">
       <BrandLogo variant="admin" priority/>
       <p>Commerce studio</p>
-      <nav><a className="active" href="#overview">⌂ Overview</a><a href="#products">◇ Products</a><a href="#orders">▤ Orders</a><a href="#journal">✦ Journal</a><a href="#customers">♙ Customers</a><a href="#analytics">⌁ Analytics</a></nav>
+      <nav><a className="active" href="#overview">⌂ Overview</a><a href="#products">◇ Products</a><a href="#payment-links">$ Payment links</a><a href="#orders">▤ Orders</a><a href="#journal">✦ Journal</a><a href="#customers">♙ Customers</a><a href="#analytics">⌁ Analytics</a></nav>
       <div className="admin-owner"><span>AF</span><small>Administrator<br/>Owner access</small><form action="/api/admin/logout" method="post"><button>Sign out</button></form></div>
     </aside>
     <section className="admin-main">
@@ -311,8 +351,19 @@ export default function AdminPage() {
           </div>)}
         </div>
       </article>
+      <article className="table-card payment-link-studio" id="payment-links">
+        <div className="table-head"><div><h2>Social payment links</h2><p>Create a private branded checkout for an order agreed through WhatsApp, Instagram, Facebook or TikTok.</p></div></div>
+        <form className="payment-link-generator" onSubmit={(event) => void generatePaymentLink(event)}>
+          <fieldset><legend>Customer</legend><div className="form-split"><label>Customer name<input name="customerName" required maxLength={120}/></label><label>Email<input name="customerEmail" type="email" required/></label></div><label>Phone<input name="phone" type="tel" placeholder="Include country code"/></label></fieldset>
+          <fieldset><legend>Order</legend><label>Order description<input name="itemName" required maxLength={180} placeholder="e.g. Custom lace gown in royal blue"/></label><div className="form-split"><label>Quantity<input name="quantity" type="number" min="1" max="100" defaultValue="1" required/></label><label>Size or measurements<input name="selectedSize" maxLength={120} placeholder="e.g. US 10 or custom measurements received"/></label></div><div className="form-split"><label>Currency<select name="currency" defaultValue="USD"><option>USD</option><option>GBP</option></select></label><label>Destination<select name="country" defaultValue="US"><option value="US">United States</option><option value="GB">United Kingdom</option></select></label></div><div className="form-split"><label>Order amount<input name="amount" type="number" min="0.01" step="0.01" required/></label><label>Delivery<input name="delivery" type="number" min="0" step="0.01" required/></label></div><div className="form-split"><label>Tax, if applicable<input name="tax" type="number" min="0" step="0.01" defaultValue="0"/></label><label>Link validity<select name="expiryDays" defaultValue="7"><option value="1">1 day</option><option value="3">3 days</option><option value="7">7 days</option><option value="14">14 days</option><option value="30">30 days</option></select></label></div></fieldset>
+          <fieldset><legend>Doorstep delivery</legend><label>Address<input name="address" required maxLength={220}/></label><div className="form-split"><label>City<input name="city" required maxLength={100}/></label><label>State / region<input name="state" required maxLength={100}/></label></div><label>ZIP / postcode<input name="postalCode" required maxLength={20}/></label></fieldset>
+          <button className="checkout-submit" disabled={generatingPaymentLink}>{generatingPaymentLink ? "Generating secure link…" : "Generate branded payment link"}</button>
+        </form>
+        {generatedPaymentUrl && <div className="generated-payment-link" role="status"><div><b>Payment link ready</b><a href={generatedPaymentUrl} target="_blank" rel="noreferrer">{generatedPaymentUrl}</a></div><button type="button" onClick={() => { void navigator.clipboard.writeText(generatedPaymentUrl); setNotice("Payment link copied."); }}>Copy link</button></div>}
+        <div className="payment-link-history"><h3>Recent payment links</h3>{paymentLinks.map((link) => { const order = Array.isArray(link.orders) ? link.orders[0] : link.orders; return <div key={link.id}><span><b>{order?.order_number || "New link"} · {order?.customer_name}</b><small>{order?.currency} {Number(order?.total || 0).toFixed(2)} · {link.status} · expires {new Date(link.expires_at).toLocaleDateString()}</small></span>{link.status === "active" && <button type="button" onClick={() => void revokePaymentLink(link.id)}>Revoke</button>}</div>; })}{!paymentLinks.length && <p>No payment links created yet.</p>}</div>
+      </article>
       <article className="table-card" id="journal">
-        <div className="table-head"><div><h2>Journal publishing</h2><p>{posts.length} posts · One Nigerian fashion article publishes automatically every day</p></div><button onClick={() => void createPost()}>New draft</button></div>
+        <div className="table-head"><div><h2>Journal publishing</h2><p>{posts.length} posts · One Nigerian fashion article publishes automatically every day at 8:00 UTC</p></div><div className="table-head-actions"><button onClick={() => void publishToday()}>Publish today now</button><button onClick={() => void createPost()}>New draft</button></div></div>
         <div className="admin-filters"><input type="search" value={postQuery} onChange={(event) => setPostQuery(event.target.value)} placeholder="Search journal"/><select value={postStatus} onChange={(event) => setPostStatus(event.target.value)}><option value="all">All statuses</option><option value="draft">Draft</option><option value="published">Published</option></select><small>{filteredPosts.length} shown</small></div>
         <div className="compact-list">{filteredPosts.map((post) => <div className="blog-admin-row" key={post.id}><span><b>{post.title}</b><small>{post.status}{post.published_at ? ` · ${new Date(post.published_at).toLocaleDateString()}` : ""}</small></span><span><button onClick={() => void blogAction(post, "edit")}>Edit</button><button onClick={() => void blogAction(post, "duplicate")}>Duplicate</button>{post.status !== "published" && <button onClick={() => void blogAction(post, "publish")}>Publish</button>}<button className="danger" onClick={() => void blogAction(post, "delete")}>Delete</button></span></div>)}{!filteredPosts.length && <p>No journal posts match these filters.</p>}</div>
       </article>

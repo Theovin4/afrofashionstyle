@@ -3,6 +3,7 @@ import { createPendingOrder, type CheckoutRequest } from "../../../lib/orders";
 import { createAdminSupabase } from "../../../lib/supabase";
 import { enforceRateLimit } from "../../../lib/security";
 import { sendCryptoReviewNotification } from "../../../lib/notifications";
+import { preparePaymentLinkOrder } from "../../../lib/payment-links";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,12 +21,14 @@ export async function POST(request: Request) {
   const limited = await enforceRateLimit(request, "crypto-checkout", 5, 15 * 60);
   if (limited) return limited;
   let orderId: string | undefined;
+  let createdOrder = false;
   let uploadedPublicId: string | undefined;
   try {
     const form = await request.formData();
+    const paymentLinkToken = String(form.get("paymentLinkToken") || "");
     const rawCheckout = String(form.get("checkout") || "");
-    if (rawCheckout.length > 32_768) return Response.json({ error: "Checkout details are too large." }, { status: 413 });
-    const input = JSON.parse(rawCheckout) as CheckoutRequest;
+    if (!paymentLinkToken && rawCheckout.length > 32_768) return Response.json({ error: "Checkout details are too large." }, { status: 413 });
+    const input = paymentLinkToken ? null : JSON.parse(rawCheckout) as CheckoutRequest;
     const network = String(form.get("network") || "") as keyof typeof addresses;
     const amountSent = String(form.get("amountSent") || "").trim();
     const transactionReference = String(form.get("transactionReference") || "").trim();
@@ -40,11 +43,15 @@ export async function POST(request: Request) {
     const apiKey = process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY?.trim();
     const apiSecret = process.env.CLOUDINARY_API_SECRET?.trim();
     if (!cloudName || !apiKey || !apiSecret) return Response.json({ error: "Payment proof storage is unavailable." }, { status: 503 });
-    const { order } = await createPendingOrder(input, "crypto", {
-      clientIp: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim(),
-      userAgent: request.headers.get("user-agent") || undefined,
-      sourceUrl: `${new URL(request.url).origin}/checkout`,
-    });
+    const prepared = paymentLinkToken
+      ? await preparePaymentLinkOrder(paymentLinkToken, "crypto")
+      : await createPendingOrder(input!, "crypto", {
+          clientIp: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim(),
+          userAgent: request.headers.get("user-agent") || undefined,
+          sourceUrl: `${new URL(request.url).origin}/checkout`,
+        });
+    const order = prepared.order;
+    createdOrder = !paymentLinkToken;
     orderId = order.id;
     cloudinary.config({ cloud_name: cloudName, api_key: apiKey, api_secret: apiSecret, secure: true });
     const bytes = Buffer.from(await proof.arrayBuffer());
@@ -77,7 +84,7 @@ export async function POST(request: Request) {
     return Response.json({ orderNumber: order.order_number, whatsappUrl: `https://wa.me/2347049841931?text=${encodeURIComponent(message)}` });
   } catch (error) {
     const supabase = createAdminSupabase();
-    if (orderId) await supabase.from("orders").delete().eq("id", orderId);
+    if (orderId && createdOrder) await supabase.from("orders").delete().eq("id", orderId);
     if (uploadedPublicId) {
       cloudinary.config({ cloud_name: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME, api_key: process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY, api_secret: process.env.CLOUDINARY_API_SECRET, secure: true });
       await cloudinary.uploader.destroy(uploadedPublicId, { type: "authenticated", invalidate: true }).catch(() => undefined);

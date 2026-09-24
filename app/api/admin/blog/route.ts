@@ -1,5 +1,5 @@
 import { isAdmin } from "../../../lib/admin-auth";
-import { productDescription, slugify } from "../../../lib/blog";
+import { productDescription, publishDailyBlogPost, slugify } from "../../../lib/blog";
 import { createAdminSupabase } from "../../../lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +13,7 @@ export async function GET() {
 export async function POST(request: Request) {
   if (!(await isAdmin())) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const input = await request.json() as Record<string, unknown>;
+  if (input.action === "publish_daily") return Response.json(await publishDailyBlogPost());
   const supabase = createAdminSupabase();
   if (input.action === "duplicate") {
     const { data: source } = await supabase.from("blog_posts").select("*").eq("id", input.id).single();

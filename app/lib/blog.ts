@@ -1,6 +1,7 @@
 import { createAdminSupabase } from "./supabase";
+import { SEO_BLOG_PLANS } from "./seo-blog-plan";
 
-const TOPICS = [
+export const TOPICS = [
   {
     title: "How to Style Ankara Dresses for a Modern Occasion",
     excerpt: "A considered guide to balancing vibrant Ankara prints with refined accessories, confident proportions and occasion-ready polish.",
@@ -65,20 +66,47 @@ export function productDescription(name: string, category: string) {
 export async function publishDailyBlogPost() {
   const supabase = createAdminSupabase();
   const today = new Date();
-  const topic = TOPICS[Math.floor(today.getTime() / 86_400_000) % TOPICS.length];
-  const slug = slugify(topic.title);
-  const { data: existing } = await supabase.from("blog_posts")
-    .select("id,slug,title")
-    .eq("title", topic.title)
-    .eq("status", "published")
-    .order("published_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  if (existing) return { post: existing, created: false, reason: "Topic already published" };
+  const utcDate = today.toISOString().slice(0, 10);
+  const { data: publishedToday } = await supabase.from("blog_posts").select("id,slug,title")
+    .eq("status", "published").gte("published_at", `${utcDate}T00:00:00.000Z`).lt("published_at", `${utcDate}T23:59:59.999Z`).limit(1).maybeSingle();
+  if (publishedToday) return { post: publishedToday, created: false, reason: "Daily edition already published" };
+
+  const { data: queuedDraft } = await supabase.from("blog_posts").select("id,title,slug,excerpt,content")
+    .eq("status", "draft").order("created_at", { ascending: true }).limit(1).maybeSingle();
+  if (queuedDraft) {
+    const { data: published, error: publishError } = await supabase.from("blog_posts").update({ status: "published", published_at: today.toISOString() })
+      .eq("id", queuedDraft.id).eq("status", "draft").select("id,slug,title").single();
+    if (publishError) throw publishError;
+    return { post: published, created: false, reason: "Published the next administrator-reviewed draft" };
+  }
+
+  const dayNumber = Math.floor(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()) / 86_400_000);
+  const plan = SEO_BLOG_PLANS[dayNumber % SEO_BLOG_PLANS.length];
+  const displayDate = new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" }).format(today);
+  const title = `${plan.title}: ${displayDate} Style Desk`;
+  const slug = `${slugify(plan.title)}-${utcDate}`;
+  const marketDelivery = plan.market === "UK" ? "UK customers can check out in GBP with tracked delivery in 3–7 working days." : plan.market === "USA" ? "USA customers can check out in USD with tracked delivery in 5–7 working days." : "Customers in the USA and UK can shop in USD or GBP and receive tracked delivery.";
+  const sections = plan.outline.map((heading, index) => {
+    const cleanHeading = heading.replace(/^H2:\s*/, "");
+    const guidance = [
+      `Start with the occasion, the dress direction and the level of formality. ${cleanHeading} is easier to approach when colour, silhouette and comfort are considered together rather than as separate decisions.`,
+      `A premium result depends on proportion and restraint. Let the textile or principal design detail lead, then use jewellery, footwear and headwear to support it without competing for attention.`,
+      `Fit should be confirmed before payment. Compare bust, waist and hip measurements with the Afro.Fashionstyle size guide, and send your measurements through WhatsApp whenever a standard size does not describe you accurately.`,
+      `For an overseas celebration, work backwards from the event date. Allow time for preparation, tracked delivery and a final styling check so the outfit arrives as a considered part of the occasion rather than a last-minute decision.`,
+      `Fabric care protects colour, structure and embellishment. Follow the garment instructions, store the piece away from damp and direct sunlight, and avoid harsh cleaning methods that can weaken decorative finishes.`,
+      `${marketDelivery} PayPal, Flutterwave and reviewed cryptocurrency payments are available through the secure website checkout.`,
+    ][index % 6];
+    return `${cleanHeading}\n\n${guidance}`;
+  }).join("\n\n");
+  const topic = {
+    title,
+    excerpt: `Today’s Afro.Fashionstyle guide to ${plan.targetKeyword}, written for ${plan.market === "USA & UK" ? "USA and UK" : plan.market} shoppers planning a confident Nigerian occasion look.`,
+    content: `${plan.title}\n\nAfrican and Nigerian occasion wear is most successful when heritage, personal style and practical planning are treated with equal care. This edition focuses on clear choices customers can use before ordering.\n\n${sections}\n\nAfro.Fashionstyle support is available 24/7 for sizing, measurements and delivery questions. Review the size guide and confirm every order detail before payment because confirmed outfit sales are final, except where applicable consumer law provides otherwise.`,
+  };
   const { data, error } = await supabase.from("blog_posts").insert({
     ...topic,
     slug,
-    topic: "Nigerian Fashion",
+    topic: plan.targetKeyword,
     status: "published",
     seo_title: `${topic.title} | Afro.Fashionstyle Journal`,
     seo_description: topic.excerpt,

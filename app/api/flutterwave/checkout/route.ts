@@ -1,6 +1,7 @@
 import { createPendingOrder, type CheckoutRequest } from "../../../lib/orders";
 import { createAdminSupabase } from "../../../lib/supabase";
 import { enforceRateLimit, payloadError, readLimitedJson } from "../../../lib/security";
+import { preparePaymentLinkOrder } from "../../../lib/payment-links";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,18 +13,24 @@ export async function POST(request: Request) {
   if (!secretKey) return Response.json({ error: "Flutterwave API checkout is not configured" }, { status: 503 });
   let orderId: string | undefined;
   try {
-    let input: CheckoutRequest;
+    let input: CheckoutRequest & { paymentLinkToken?: string };
     try {
-      input = await readLimitedJson<CheckoutRequest>(request, 32_768);
+      input = await readLimitedJson<CheckoutRequest & { paymentLinkToken?: string }>(request, 32_768);
     } catch (error) {
       return payloadError(error);
     }
-    const { order } = await createPendingOrder(input, "flutterwave", {
-      clientIp: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim(),
-      userAgent: request.headers.get("user-agent") || undefined,
-      sourceUrl: `${new URL(request.url).origin}/checkout`,
-    });
+    const prepared = input.paymentLinkToken
+      ? await preparePaymentLinkOrder(input.paymentLinkToken, "flutterwave")
+      : await createPendingOrder(input, "flutterwave", {
+          clientIp: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim(),
+          userAgent: request.headers.get("user-agent") || undefined,
+          sourceUrl: `${new URL(request.url).origin}/checkout`,
+        });
+    const order = prepared.order;
     orderId = order.id;
+    const paymentCustomer = input.paymentLinkToken
+      ? { email: "customer_email" in order ? String(order.customer_email) : "", name: "customer_name" in order ? String(order.customer_name) : "", phone: "phone" in order ? String(order.phone || "") : "" }
+      : { email: input.customer.email, name: `${input.customer.firstName} ${input.customer.lastName}`, phone: input.customer.phone };
     const origin = new URL(request.url).origin;
     const response = await fetch("https://api.flutterwave.com/v3/payments", {
       method: "POST",
@@ -34,9 +41,9 @@ export async function POST(request: Request) {
         currency: order.currency,
         redirect_url: `${origin}/payment/flutterwave/return`,
         customer: {
-          email: input.customer.email,
-          name: `${input.customer.firstName} ${input.customer.lastName}`,
-          phonenumber: input.customer.phone,
+          email: paymentCustomer.email,
+          name: paymentCustomer.name,
+          phonenumber: paymentCustomer.phone,
         },
         customizations: {
           title: "Afro.Fashionstyle",
